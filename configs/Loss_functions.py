@@ -9,6 +9,10 @@ class LossFunctions:
             return nn.CrossEntropyLoss(reduction=loss_reduction)
         elif problem_type == "multi_label" and loss_type == "bce_with_logits":
             return nn.BCEWithLogitsLoss(reduction=loss_reduction)
+        elif problem_type == "single_label" and loss_type == "kldiv":
+            return KDLoss(problem_type="single_label", T=1.0, alpha=0.5, reduction=loss_reduction)
+        elif problem_type == "multi_label" and loss_type == "kldiv":
+            return KDLoss(problem_type="multi_label", T=1.0, alpha=0.5, reduction=loss_reduction)
         else:
             raise ValueError(
                 f"Unsupported loss configuration: {problem_type} "
@@ -18,7 +22,7 @@ class LossFunctions:
 
 # TODO: Implement KDLoss class for knowledge distillation scenarios (multi and single label)
 class KDLoss(nn.Module):
-    def __init__(self, T=1.0, alpha=0.5, reduction='batchmean', problem_type: str = "single_label"):
+    def __init__(self, problem_type: str, T=1.0, alpha=0.5, reduction='batchmean'):
         if problem_type not in ['single_label', 'multi_label']:
             raise ValueError(f"Unsupported problem_type: {self.problem_type}")
         super(KDLoss, self).__init__()
