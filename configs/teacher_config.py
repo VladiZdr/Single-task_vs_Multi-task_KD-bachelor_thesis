@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 from dataclasses import dataclass
 from typing import Literal
-from Loss_functions import LossFunctions
+from configs.Loss_functions import LossFunctions
 
 
 @dataclass
