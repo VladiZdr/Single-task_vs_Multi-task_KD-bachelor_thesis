@@ -24,7 +24,6 @@ class TeacherConfig:
     
     # Hardware Routing
     device: Literal["auto", "cuda", "cpu"] = "auto"
-    mixed_precision: bool = True
     seed: int = 42
     
     # Path Resolution

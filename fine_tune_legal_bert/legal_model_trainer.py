@@ -13,25 +13,6 @@ from configs.teacher_config import TeacherConfig
 
 logger = logging.getLogger(__name__)
 
-# Tries newer API first, falls back if needed.
-# make_grad_scaler(...) helps prevent numerical issues when using half precision.
-# amp_context(...) when enabled, some operations run in mixed precision.
-try:
-    from torch.amp import GradScaler, autocast # type: ignore
-    def make_grad_scaler(enabled: bool) -> GradScaler:
-        return GradScaler("cuda", enabled=enabled)
-
-    def amp_context(enabled: bool): # type: ignore
-        return autocast(device_type="cuda", enabled=enabled)
-except (ImportError, AttributeError):
-    from torch.cuda.amp import GradScaler, autocast
-
-    def make_grad_scaler(enabled: bool) -> GradScaler:
-        return GradScaler(enabled=enabled)
-
-    def amp_context(enabled: bool):
-        return autocast(enabled=enabled)
-
 
 class LegalModelTrainer:
     def __init__(self, model: nn.Module, config: TeacherConfig):
@@ -42,11 +23,6 @@ class LegalModelTrainer:
         self.model.to(self.device)
 
         self.criterion = config.get_loss_criterion()
-
-        # AMP is used only when: the config's mixed precision is on && the model is on a CUDA device
-        # That prevents AMP from being used on CPU by mistake.
-        self.use_amp = self.config.mixed_precision and self.device.type == "cuda"
-        self.scaler = make_grad_scaler(enabled=self.use_amp)
 
     def _prepare_batch(self, batch: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor | None]:
         # Moves the batch to the appropriate device and ensures labels are in the correct format 
@@ -80,26 +56,16 @@ class LegalModelTrainer:
             prepared = self._prepare_batch(batch)
             labels = prepared["labels"]
 
-            # Forward pass with automatic mixed precision if enabled
-            with amp_context(enabled=self.use_amp):
-                logits = self.model( prepared["input_ids"], prepared["attention_mask"], prepared["token_type_ids"])
+            # Forward pass to compute logits and loss
+            logits = self.model( prepared["input_ids"], prepared["attention_mask"], prepared["token_type_ids"])
+            assert logits.shape[0] == labels.shape[0],        "Batch size mismatch"      # type: ignore
+            assert logits.shape[1] == self.config.num_labels, "Logit dimension mismatch"
+            loss = self.criterion(logits, labels)
 
-                assert logits.shape[0] == labels.shape[0],        "Batch size mismatch"  # type: ignore
-                assert logits.shape[1] == self.config.num_labels, "Logit dimension mismatch"
-
-                loss = self.criterion(logits, labels)
-
-            # Backward pass and optimization step with gradient scaling if AMP is enabled
-            if self.use_amp:
-                self.scaler.scale(loss).backward()
-                self.scaler.unscale_(optimizer)
-                nn.utils.clip_grad_norm_(self.model.parameters(), self.config.max_grad_norm)
-                self.scaler.step(optimizer)
-                self.scaler.update()
-            else:
-                loss.backward()
-                nn.utils.clip_grad_norm_(self.model.parameters(), self.config.max_grad_norm)
-                optimizer.step()
+            # Backward pass and optimization step
+            loss.backward()
+            nn.utils.clip_grad_norm_(self.model.parameters(), self.config.max_grad_norm)
+            optimizer.step()
 
             # Updates the learning rate schedule after each batch
             scheduler.step()
@@ -124,10 +90,9 @@ class LegalModelTrainer:
         for batch in tqdm(dataloader, desc="Evaluation Iteration"):
             prepared = self._prepare_batch(batch)
             labels = prepared["labels"]
-
-            with amp_context(enabled=self.use_amp):
-                logits = self.model( prepared["input_ids"], prepared["attention_mask"], prepared["token_type_ids"])
-                loss = self.criterion(logits, labels)
+            
+            logits = self.model( prepared["input_ids"], prepared["attention_mask"], prepared["token_type_ids"])
+            loss = self.criterion(logits, labels)
 
             total_loss += float(loss.item())
 

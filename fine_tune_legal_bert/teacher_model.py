@@ -8,7 +8,7 @@ class TeacherModel(nn.Module):
         super(TeacherModel, self).__init__()
         self.config = config
 
-        # Hugging Face loads the pretrained model, we load the Transformer encoder and build our own classifier
+        # Hugging Face loads the pretrained model -> we load the Transformer encoder and build our own classifier
         self.encoder = AutoModel.from_pretrained(config.model_name_or_path)
 
         dropout_prob = getattr(self.encoder.config, "hidden_dropout_prob", 0.1)

@@ -112,7 +112,7 @@ def main() -> None:
         num_labels=8,
         problem_type="multi_label",
         loss_type="bce_with_logits",
-        batch_size=32,
+        batch_size=4,
         epochs=1,
         learning_rate=3e-5
     )
