@@ -6,18 +6,21 @@ from typing import cast
 from datasets import Dataset, DatasetDict, load_from_disk
 from transformers import AutoTokenizer
 
-def preprocess_dataset(name, sample) -> DatasetDict | Dataset:
-    dataset_dir = create_preprocessed_dataset_dir(raw_dataset_dir = "datasets_man_and_store/" + name + "_raw")
+def preprocess_dataset(raw_dataset_dir, sample) -> DatasetDict | Dataset:
+    dataset_dir = create_preprocessed_dataset_dir(raw_dataset_dir=raw_dataset_dir)
 
-    add_task_marker(dataset_dir = dataset_dir, task_marker = name)
+    raw_dataset_dir = Path(raw_dataset_dir)
+    dataset_name = raw_dataset_dir.name.replace("_raw", "")
+
+    add_task_marker(dataset_dir = dataset_dir, task_marker = dataset_name)
     clean_text(dataset_dir = dataset_dir)
     rename_label_to_labels(dataset_dir = dataset_dir)
     to_multi_hot(dataset_dir = dataset_dir)
     tokenize_text(dataset_dir = dataset_dir)
 
     tokenized_ds = load_from_disk(str(dataset_dir))
-    #print("\nExample after preprocessing:\n", tokenized_ds["train"][sample])
 
+    print("\nExample after preprocessing:\n", tokenized_ds["train"][sample])
     return tokenized_ds
 
 def _load_valid_dataset_dict(dataset_dir):

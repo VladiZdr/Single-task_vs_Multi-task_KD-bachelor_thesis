@@ -13,9 +13,12 @@ class TeacherConfig:
     loss_type: Literal["cross_entropy", "bce_with_logits"]
     model_name_or_path: str = "nlpaueb/legal-bert-base-uncased"
     
+    # Cut data for quicker testing
+    num_of_batches: int = -1  # -1 means use all batches in the dataloader
+    percent_of_data: int = 100  # Percentage of data to use for training
+
     # Optimization Hyperparameters
     batch_size: int = 16
-    num_of_batches: int = -1  # -1 means use all batches in the dataloader
     learning_rate: float = 3e-5
     epochs: int = 1
     weight_decay: float = 0.01

@@ -46,7 +46,7 @@ def run_task_pipeline(task_config: TeacherConfig) -> None:
     set_all_seeds(task_config.seed)
     
     # Load tokenized datasets
-    preprocessed = prep_dataset(task_config.task_name, seed=task_config.seed)
+    preprocessed = prep_dataset(task_config.task_name, seed=task_config.seed, percent_of_data=task_config.percent_of_data)
     
     if isinstance(preprocessed, DatasetDict):
         train_dataset = preprocessed["train"]
@@ -113,7 +113,8 @@ def main() -> None:
         problem_type="multi_label",
         loss_type="bce_with_logits",
         batch_size=4,
-        num_of_batches=100,  # Limit to 100 batches for quicker testing (influences only training, evaluation and export will still process all batches)
+        num_of_batches=-1,  # Limit to "num_of_batches" batches for quicker testing (influences only training, evaluation and export will still process all batches)
+        percent_of_data=5,  # Use only "percent_of_data" % of the dataset for quicker testing
         epochs=1,
         learning_rate=3e-5
     )
