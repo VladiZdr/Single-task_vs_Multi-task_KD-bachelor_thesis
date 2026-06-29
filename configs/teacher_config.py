@@ -11,7 +11,7 @@ class TeacherConfig:
     task_name: str
     num_labels: int
     problem_type: Literal["single_label", "multi_label"]
-    loss_type: Literal["cross_entropy", "bce_with_logits"]
+    loss_type: Literal["cross_entropy", "bce_with_logits", "kldiv"]
     model_name_or_path: str = "nlpaueb/legal-bert-base-uncased"
     
     # Cut data for quicker testing
@@ -25,6 +25,8 @@ class TeacherConfig:
     weight_decay: float = 0.01
     warmup_ratio: float = 0.1
     max_grad_norm: float = 1.0
+    T: float = 1.0
+    alpha: float = 0.5
     loss_reduction : Literal["mean", "sum"] = "mean"
     
     # Hardware Routing
@@ -61,7 +63,9 @@ class TeacherConfig:
 
         valid = {
         ("single_label", "cross_entropy"),
-        ("multi_label", "bce_with_logits")
+        ("multi_label", "bce_with_logits"),
+        ("single_label", "kldiv"),
+        ("multi_label", "kldiv")
         }
         if (self.problem_type, self.loss_type) not in valid:
             raise ValueError(
@@ -70,7 +74,7 @@ class TeacherConfig:
             )
 
     def get_loss_criterion(self) -> nn.Module:
-        return LossFunctions.get_loss_function(self.problem_type, self.loss_type, self.loss_reduction)
+        return LossFunctions.get_loss_function(self.problem_type, self.loss_type, self.loss_reduction, self.T, self.alpha)
 
     
         
