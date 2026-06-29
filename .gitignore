@@ -1,0 +1,11 @@
+# Ignore large model files
+*.safetensors
+*.pth
+*.bin
+*.pt
+
+# Ignore virtual environments and outputs
+venv/
+__pycache__/
+outputs/
+research_proposal.md
