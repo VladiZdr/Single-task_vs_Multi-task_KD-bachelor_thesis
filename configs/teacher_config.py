@@ -15,6 +15,7 @@ class TeacherConfig:
     
     # Optimization Hyperparameters
     batch_size: int = 16
+    num_of_batches: int = -1  # -1 means use all batches in the dataloader
     learning_rate: float = 3e-5
     epochs: int = 1
     weight_decay: float = 0.01

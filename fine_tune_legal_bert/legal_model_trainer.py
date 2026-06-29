@@ -47,8 +47,15 @@ class LegalModelTrainer:
         # Turns on training behavior, such as dropout
         self.model.train()
         total_loss = 0.0
+        current_batch_count = 0
 
         for batch in tqdm(dataloader, desc="Training Iteration"):
+            # If num_of_batches is set to a positive integer, we limit the number of batches processed per epoch.
+            if self.config.num_of_batches > 0 and current_batch_count >= self.config.num_of_batches:
+                break
+            elif self.config.num_of_batches > 0:
+                current_batch_count += 1
+
             # Clears old gradients before computing new ones.
             optimizer.zero_grad(set_to_none=True)
 
