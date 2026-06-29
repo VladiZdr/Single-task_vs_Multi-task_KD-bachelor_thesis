@@ -39,8 +39,9 @@ class KDLoss(nn.Module):
         student_loss = 0.0
         distillation_loss = 0.0
 
-        # 1. Student Loss (Gold Labels)
+        
         if self.problem_type == 'single_label':
+            # Student Loss (Gold Labels)
             student_loss = F.cross_entropy(student_logits, labels)
             
             # Distillation using KL Divergence on Softmax
@@ -49,6 +50,7 @@ class KDLoss(nn.Module):
             distillation_loss = F.kl_div(student_soft, teacher_soft, reduction=self.reduction) * (self.T ** 2)
             
         elif self.problem_type == 'multi_label':
+            # Student Loss (Gold Labels)
             student_loss = F.binary_cross_entropy_with_logits(student_logits, labels)
             
             # Distillation using Sigmoid for independent probabilities
