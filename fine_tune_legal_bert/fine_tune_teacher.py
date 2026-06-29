@@ -114,7 +114,7 @@ def main() -> None:
         loss_type="bce_with_logits",
         batch_size=4,
         num_of_batches=-1,  # Limit to "num_of_batches" batches for quicker testing (influences only training, evaluation and export will still process all batches)
-        percent_of_data=5,  # Use only "percent_of_data" % of the dataset for quicker testing
+        percent_of_data=1,  # Use only "percent_of_data" % of the dataset for quicker testing
         epochs=1,
         learning_rate=3e-5
     )

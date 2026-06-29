@@ -1,10 +1,12 @@
+import shutil
+import os
 import argparse
 from pathlib import Path
 from datasets import Dataset, DatasetDict
 from datasets_man_and_store.raw_loader import load_dataset_raw
 from datasets_man_and_store.preprocess_dataset import preprocess_dataset
 
-def prep_dataset(dataset_name: str, sample: int = 101, seed: int = 42, percent_of_data: int = 100) -> DatasetDict | Dataset:
+def prep_dataset(dataset_name: str, sample: int = 0, seed: int = 42, percent_of_data: int = 100) -> DatasetDict | Dataset:
     """
     Prepares the dataset by loading the raw data and preprocessing it.
     Args:
@@ -13,8 +15,17 @@ def prep_dataset(dataset_name: str, sample: int = 101, seed: int = 42, percent_o
         seed (int): Seed used when raw data needs to be split locally.
         percent_of_data (int): Percentage of data to use for training.
     """
+    # Delete the raw dataset directory if it exists to ensure a fresh start
+    path_raw = f"datasets_man_and_store/{dataset_name}_raw"
+    if os.path.exists(path_raw):
+        shutil.rmtree(path_raw)
+    path_preprocessed = f"datasets_man_and_store/{dataset_name}_preprocessed"
+    if os.path.exists(path_preprocessed):
+        shutil.rmtree(path_preprocessed)
+
     # Load raw dataset
     raw = load_dataset_raw(dataset_name, seed=seed)
+
     raw_dataset_dir = Path("datasets_man_and_store") / f"{dataset_name}_raw"
 
     # If percent_of_data is less than 100, we select a subset of the dataset for quicker testing.
@@ -34,9 +45,9 @@ def prep_dataset(dataset_name: str, sample: int = 101, seed: int = 42, percent_o
             # If it's a single Dataset
             raw = raw.select(range(max(1, int(len(raw) * (percent_of_data / 100)))))
 
-        subset_dir = raw_dataset_dir.parent / f"{raw_dataset_dir.name}_{percent_of_data}pct"
-        raw.save_to_disk(str(subset_dir))
-        raw_dataset_dir = subset_dir
+        #subset_dir = raw_dataset_dir.parent / f"{raw_dataset_dir.name}_{percent_of_data}pct"
+        raw.save_to_disk(str(raw_dataset_dir)) #raw.save_to_disk(str(subset_dir))
+        #raw_dataset_dir = subset_dir
 
     # Preprocess the dataset
     return preprocess_dataset(raw_dataset_dir=raw_dataset_dir, sample=sample)

@@ -1,5 +1,7 @@
 import gc
 import re
+import shutil
+import os
 from pathlib import Path
 from shutil import copytree, rmtree
 from typing import cast
@@ -20,7 +22,7 @@ def preprocess_dataset(raw_dataset_dir, sample) -> DatasetDict | Dataset:
 
     tokenized_ds = load_from_disk(str(dataset_dir))
 
-    print("\nExample after preprocessing:\n", tokenized_ds["train"][sample])
+    #print("\nExample after preprocessing:\n", tokenized_ds["train"][sample])
     return tokenized_ds
 
 def _load_valid_dataset_dict(dataset_dir):
