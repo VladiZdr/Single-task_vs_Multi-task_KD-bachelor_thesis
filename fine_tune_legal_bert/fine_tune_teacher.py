@@ -101,7 +101,7 @@ def main() -> None:
         num_labels=100,
         problem_type="single_label",
         loss_type="cross_entropy",
-        batch_size=16,
+        batch_size=32,
         epochs=0,
         learning_rate=2e-5
     )
@@ -112,7 +112,7 @@ def main() -> None:
         num_labels=8,
         problem_type="multi_label",
         loss_type="bce_with_logits",
-        batch_size=8,
+        batch_size=32,
         epochs=1,
         learning_rate=3e-5
     )

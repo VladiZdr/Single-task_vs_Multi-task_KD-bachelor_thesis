@@ -3,6 +3,8 @@
 *.pth
 *.bin
 *.pt
+*.json
+*.arrow
 
 # Ignore virtual environments and outputs
 venv/
