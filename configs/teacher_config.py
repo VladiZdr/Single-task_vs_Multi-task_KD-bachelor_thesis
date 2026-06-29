@@ -3,6 +3,7 @@ import torch
 import torch.nn as nn
 from dataclasses import dataclass
 from typing import Literal
+from Loss_functions import LossFunctions
 
 
 @dataclass
@@ -69,14 +70,7 @@ class TeacherConfig:
             )
 
     def get_loss_criterion(self) -> nn.Module:
-        if self.problem_type == "single_label" and self.loss_type == "cross_entropy":
-            return nn.CrossEntropyLoss(reduction=self.loss_reduction)
-        elif self.problem_type == "multi_label" and self.loss_type == "bce_with_logits":
-            return nn.BCEWithLogitsLoss(reduction=self.loss_reduction)
-        else:
-            raise ValueError(
-                f"Unsupported loss configuration: {self.problem_type} "
-                f"with loss type {self.loss_type}"
-            )
+        return LossFunctions.get_loss_function(self.problem_type, self.loss_type, self.loss_reduction)
 
+    
         

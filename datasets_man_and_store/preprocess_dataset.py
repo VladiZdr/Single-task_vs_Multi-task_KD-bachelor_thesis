@@ -1,7 +1,5 @@
 import gc
 import re
-import shutil
-import os
 from pathlib import Path
 from shutil import copytree, rmtree
 from typing import cast
