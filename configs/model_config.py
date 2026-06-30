@@ -36,6 +36,8 @@ class ModelConfig:
     # Path Resolution
     checkpoint_dir: str = ""
     output_dir: str = ""
+    unique_id_for_dir: str = ""
+    preprocessed_data_dir: Literal["raw", "./ds_with_teacher_outputs/ledgar_teacher_outputs", "./ds_with_teacher_outputs/unfair_tos_teacher_outputs"]  = "raw"
     
     def __post_init__(self):
         if self.num_labels <= 0:
@@ -55,9 +57,9 @@ class ModelConfig:
             self.mixed_precision = False
 
         if not self.checkpoint_dir:
-            self.checkpoint_dir = f"./datasets_store/checkpoints/{self.task_name}"
+            self.checkpoint_dir = f"./datasets_store/checkpoints/{self.task_name}_{self.unique_id_for_dir}"
         if not self.output_dir:
-            self.output_dir = f"./datasets_store/ds_with_teacher_outputs/{self.task_name}_teacher_outputs"
+            self.output_dir = f"./datasets_store/ds_with_teacher_outputs/{self.task_name}_teacher_outputs_{self.unique_id_for_dir}"
         os.makedirs(self.checkpoint_dir, exist_ok=True)
         os.makedirs(self.output_dir, exist_ok=True)
 

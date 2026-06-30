@@ -3,7 +3,8 @@ from datasets import Dataset as HFDataset
 from datasets import DatasetDict
 from torch.utils.data import DataLoader
 from configs.model_config import ModelConfig
-from datasets_manipulation.prepare_datasets import prep_dataset
+from datasets_manipulation.prepare_datasets import prep_dataset_from_raw
+from datasets_manipulation.preprocess_dataset import _load_valid_dataset_dict
 from fine_tuning.legal_model import LegalModel
 from fine_tuning.legal_model_trainer import LegalModelTrainer
 from fine_tuning.export_teacher_outputs import SoftTargetExporter
@@ -37,17 +38,15 @@ def seed_worker(worker_id: int) -> None:
     np.random.seed(worker_seed)
     random.seed(worker_seed)
 
-def run_task_pipeline(task_config: ModelConfig) -> None:
-    logger.info(f"Initializing optimization pipeline for task: {task_config.task_name.upper()}")
-    if task_config.epochs == 0:
-        logger.info(f"Skipping task {task_config.task_name} because epochs=0.")
-        return
-
+def prepare_dataloaders(task_config: ModelConfig) -> tuple[DataLoader, DataLoader, DataLoader]:
     set_all_seeds(task_config.seed)
     
     # Load tokenized datasets
-    preprocessed = prep_dataset(task_config.task_name, seed=task_config.seed, percent_of_data=task_config.percent_of_data)
-    
+    if task_config.preprocessed_data_dir == "raw":
+        preprocessed = prep_dataset_from_raw(dataset_name=task_config.task_name, seed=task_config.seed, percent_of_data=task_config.percent_of_data)
+    else:
+        preprocessed = _load_valid_dataset_dict(task_config.preprocessed_data_dir)  # Load preprocessed dataset from disk
+
     if isinstance(preprocessed, DatasetDict):
         train_dataset = preprocessed["train"]
         val_dataset = preprocessed["validation"]
@@ -76,10 +75,21 @@ def run_task_pipeline(task_config: ModelConfig) -> None:
     val_loader = DataLoader(val_dataset, batch_size=task_config.batch_size, shuffle=False)    # type: ignore
     test_loader = DataLoader(test_dataset, batch_size=task_config.batch_size, shuffle=False)  # type: ignore
 
+    return train_loader, val_loader, test_loader
+
+def run_task_pipeline(task_config: ModelConfig) -> None:
+    logger.info(f"Initializing optimization pipeline for task: {task_config.task_name.upper()}")
+    if task_config.epochs == 0:
+        logger.info(f"Skipping task {task_config.task_name} because epochs=0.")
+        return
+
+    train_loader, val_loader, test_loader = prepare_dataloaders(task_config=task_config)
+
     # Build Legal-BERT with classification layer
     model = LegalModel(task_config)
     
     trainer = LegalModelTrainer(model, task_config)
+
     # Train the model for specified epochs -> evaluate -> save best checkpoint
     best_weights_path = trainer.fit(train_loader, val_loader)
     if best_weights_path is None:
@@ -109,7 +119,8 @@ def main() -> None:
         learning_rate=2e-5,
 
         checkpoint_dir = "./datasets_store/checkpoints/ledgar_teacher",
-        output_dir = "./datasets_store/ds_with_teacher_outputs/ledgar_teacher_outputs"
+        output_dir = "./datasets_store/ds_with_teacher_outputs/ledgar_teacher_outputs",
+        preprocessed_data_dir = "raw"
     )
     
     # 2. Pipeline Definition for UNFAIR-ToS Terms Identification
@@ -126,7 +137,8 @@ def main() -> None:
         learning_rate=3e-5,
 
         checkpoint_dir = "./datasets_store/checkpoints/unfair_tos_teacher",
-        output_dir = "./datasets_store/ds_with_teacher_outputs/unfair_tos_teacher_outputs"
+        output_dir = "./datasets_store/ds_with_teacher_outputs/unfair_tos_teacher_outputs",
+        preprocessed_data_dir = "raw"
     )
     
     # Run the configurations sequentially

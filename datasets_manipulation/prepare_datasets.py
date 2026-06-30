@@ -6,7 +6,7 @@ from datasets import Dataset, DatasetDict
 from datasets_manipulation.raw_loader import load_dataset_raw
 from datasets_manipulation.preprocess_dataset import preprocess_dataset
 
-def prep_dataset(dataset_name: str, sample: int = 0, seed: int = 42, percent_of_data: int = 100) -> DatasetDict | Dataset:
+def prep_dataset_from_raw(dataset_name: str, sample: int = 0, seed: int = 42, percent_of_data: int = 100) -> DatasetDict | Dataset:
     """
     Prepares the dataset by loading the raw data and preprocessing it.
     Args:
@@ -45,9 +45,7 @@ def prep_dataset(dataset_name: str, sample: int = 0, seed: int = 42, percent_of_
             # If it's a single Dataset
             raw = raw.select(range(max(1, int(len(raw) * (percent_of_data / 100)))))
 
-        #subset_dir = raw_dataset_dir.parent / f"{raw_dataset_dir.name}_{percent_of_data}pct"
-        raw.save_to_disk(str(raw_dataset_dir)) #raw.save_to_disk(str(subset_dir))
-        #raw_dataset_dir = subset_dir
+        raw.save_to_disk(str(raw_dataset_dir)) 
 
     # Preprocess the dataset
     return preprocess_dataset(raw_dataset_dir=raw_dataset_dir, sample=sample)
@@ -58,4 +56,4 @@ if __name__ == "__main__":
     parser.add_argument("--percent-of-data", type=int, default=100)
     args = parser.parse_args()
 
-    prep_dataset(dataset_name=args.dataset, percent_of_data=args.percent_of_data)
+    prep_dataset_from_raw(dataset_name=args.dataset, percent_of_data=args.percent_of_data)
