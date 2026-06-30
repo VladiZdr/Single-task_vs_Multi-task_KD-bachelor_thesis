@@ -2,7 +2,7 @@ import logging
 from datasets import Dataset as HFDataset
 from datasets import DatasetDict
 from torch.utils.data import DataLoader
-from configs.model_config import ModelConfig
+from configs.model_config import ModelConfig, ledgar_teacher_tester, unfair_tos_teacher_tester
 from datasets_manipulation.prepare_datasets import prep_dataset_from_raw
 from datasets_manipulation.preprocess_dataset import _load_valid_dataset_dict
 from fine_tuning.legal_model import LegalModel
@@ -105,46 +105,9 @@ def run_task_pipeline(task_config: ModelConfig) -> None:
     logger.info(f"Task pipeline for {task_config.task_name} successfully executed.\n" + "="*80)
 
 def main() -> None:
-    # 1. Pipeline Definition for LEDGAR Provision Classification
-    ledgar_teacher_config = ModelConfig(
-        task_name="ledgar",
-        num_labels=100,
-        problem_type="single_label",
-        loss_type="cross_entropy",
-
-        batch_size=32,
-        num_of_batches=-1,  # Limit to "num_of_batches" batches for quicker testing (influences only training, evaluation and export will still process all batches)
-        percent_of_data=1,  # Use only "percent_of_data" % of the dataset for quicker testing
-        epochs=0,
-        learning_rate=2e-5,
-
-        unique_id_for_dir = "tester",
-        #checkpoint_dir = "./datasets_store/checkpoints/ledgar_teacher",
-        #output_dir = "./datasets_store/ds_with_teacher_outputs/ledgar_teacher_outputs",
-        preprocessed_data_dir = "raw"
-    )
-    
-    # 2. Pipeline Definition for UNFAIR-ToS Terms Identification
-    unfair_tos_teacher_config = ModelConfig(
-        task_name="unfair_tos",
-        num_labels=8,
-        problem_type="multi_label",
-        loss_type="bce_with_logits",
-
-        batch_size=4,
-        num_of_batches=-1,  # Limit to "num_of_batches" batches for quicker testing (influences only training, evaluation and export will still process all batches)
-        percent_of_data=1,  # Use only "percent_of_data" % of the dataset for quicker testing
-        epochs=1,
-        learning_rate=3e-5,
-
-        unique_id_for_dir = "tester",
-        #checkpoint_dir = "./datasets_store/checkpoints/unfair_tos_teacher",
-        #output_dir = "./datasets_store/ds_with_teacher_outputs/unfair_tos_teacher_outputs",
-        preprocessed_data_dir = "raw"
-    )
     
     # Run the configurations sequentially
-    for config in [ledgar_teacher_config, unfair_tos_teacher_config]:
+    for config in [ledgar_teacher_tester, unfair_tos_teacher_tester]:
         run_task_pipeline(config)
 
 if __name__ == "__main__":

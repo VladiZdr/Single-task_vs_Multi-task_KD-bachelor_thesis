@@ -15,7 +15,7 @@ class ModelConfig:
     model_name_or_path: str = "nlpaueb/legal-bert-base-uncased"
     
     # Cut data for quicker testing
-    num_of_batches: int = -1  # -1 means use all batches in the dataloader
+    num_of_batches: int = -1  # -1 means use all batches in the dataloader (affects only training, evaluation, and export will still process all batches)
     percent_of_data: int = 100  # Percentage of data to use for training
 
     # Optimization Hyperparameters
@@ -80,3 +80,35 @@ class ModelConfig:
 
     
         
+ledgar_teacher_tester = ModelConfig(
+    task_name="ledgar",
+    num_labels=100,
+    problem_type="single_label",
+    loss_type="cross_entropy",
+
+    batch_size=32,
+    num_of_batches=-1,  # Limit to "num_of_batches" batches for quicker testing (influences only training, evaluation and export will still process all batches)
+    percent_of_data=1,  # Use only "percent_of_data" % of the dataset for quicker testing
+    epochs=0,
+    learning_rate=2e-5,
+
+    unique_id_for_dir = "tester",
+    preprocessed_data_dir = "raw"
+)
+    
+    # 2. Pipeline Definition for UNFAIR-ToS Terms Identification
+unfair_tos_teacher_tester = ModelConfig(
+    task_name="unfair_tos",
+    num_labels=8,
+    problem_type="multi_label",
+    loss_type="bce_with_logits",
+
+    batch_size=4,
+    num_of_batches=-1,  # Limit to "num_of_batches" batches for quicker testing (influences only training, evaluation and export will still process all batches)
+    percent_of_data=1,  # Use only "percent_of_data" % of the dataset for quicker testing
+    epochs=1,
+    learning_rate=3e-5,
+
+    unique_id_for_dir = "tester",
+    preprocessed_data_dir = "raw"
+)
