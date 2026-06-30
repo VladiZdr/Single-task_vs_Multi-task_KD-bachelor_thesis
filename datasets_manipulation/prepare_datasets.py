@@ -3,8 +3,8 @@ import os
 import argparse
 from pathlib import Path
 from datasets import Dataset, DatasetDict
-from datasets_man_and_store.raw_loader import load_dataset_raw
-from datasets_man_and_store.preprocess_dataset import preprocess_dataset
+from datasets_manipulation.raw_loader import load_dataset_raw
+from datasets_manipulation.preprocess_dataset import preprocess_dataset
 
 def prep_dataset(dataset_name: str, sample: int = 0, seed: int = 42, percent_of_data: int = 100) -> DatasetDict | Dataset:
     """
@@ -16,17 +16,17 @@ def prep_dataset(dataset_name: str, sample: int = 0, seed: int = 42, percent_of_
         percent_of_data (int): Percentage of data to use for training.
     """
     # Delete the raw dataset directory if it exists to ensure a fresh start
-    path_raw = f"datasets_man_and_store/{dataset_name}_raw"
+    path_raw = f"datasets_store/{dataset_name}_raw"
     if os.path.exists(path_raw):
         shutil.rmtree(path_raw)
-    path_preprocessed = f"datasets_man_and_store/{dataset_name}_preprocessed"
+    path_preprocessed = f"datasets_store/{dataset_name}_preprocessed"
     if os.path.exists(path_preprocessed):
         shutil.rmtree(path_preprocessed)
 
     # Load raw dataset
     raw = load_dataset_raw(dataset_name, seed=seed)
 
-    raw_dataset_dir = Path("datasets_man_and_store") / f"{dataset_name}_raw"
+    raw_dataset_dir = Path("datasets_store") / f"{dataset_name}_raw"
 
     # If percent_of_data is less than 100, we select a subset of the dataset for quicker testing.
     if percent_of_data < 100:

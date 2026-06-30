@@ -3,7 +3,7 @@ from datasets import Dataset as HFDataset
 from datasets import DatasetDict
 from torch.utils.data import DataLoader
 from configs.teacher_config import TeacherConfig
-from datasets_man_and_store.prepare_datasets import prep_dataset
+from datasets_manipulation.prepare_datasets import prep_dataset
 from fine_tune_legal_bert.teacher_model import TeacherModel
 from fine_tune_legal_bert.legal_model_trainer import LegalModelTrainer
 from fine_tune_legal_bert.export_teacher_outputs import SoftTargetExporter

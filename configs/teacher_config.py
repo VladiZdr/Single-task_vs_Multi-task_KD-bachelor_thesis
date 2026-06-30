@@ -55,9 +55,9 @@ class TeacherConfig:
             self.mixed_precision = False
 
         if not self.checkpoint_dir:
-            self.checkpoint_dir = f"./checkpoints/{self.task_name}_teacher"
+            self.checkpoint_dir = f"./datasets_store/checkpoints/{self.task_name}_teacher"
         if not self.output_dir:
-            self.output_dir = f"./ds_with_teacher_outputs/{self.task_name}_teacher_outputs"
+            self.output_dir = f"./datasets_store/ds_with_teacher_outputs/{self.task_name}_teacher_outputs"
         os.makedirs(self.checkpoint_dir, exist_ok=True)
         os.makedirs(self.output_dir, exist_ok=True)
 

@@ -3,7 +3,7 @@ from datasets import DatasetDict, load_dataset
 
 
 def load_dataset_raw(dataset, train_split=0.8, val_split=0.1, test_split=0.1, seed=42):
-    raw_dir = os.path.join("datasets_man_and_store", f"{dataset}_raw")
+    raw_dir = os.path.join("datasets_store", f"{dataset}_raw")
     if os.path.isdir(raw_dir):
         return DatasetDict.load_from_disk(raw_dir)
 
