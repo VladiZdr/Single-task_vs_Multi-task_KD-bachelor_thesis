@@ -1,11 +1,11 @@
 import torch
 import torch.nn as nn
 from transformers import AutoModel
-from configs.teacher_config import TeacherConfig
+from configs.model_config import ModelConfig
 
-class TeacherModel(nn.Module):
-    def __init__(self, config: TeacherConfig):
-        super(TeacherModel, self).__init__()
+class LegalModel(nn.Module):
+    def __init__(self, config: ModelConfig):
+        super(LegalModel, self).__init__()
         self.config = config
 
         # Hugging Face loads the pretrained model -> we load the Transformer encoder and build our own classifier

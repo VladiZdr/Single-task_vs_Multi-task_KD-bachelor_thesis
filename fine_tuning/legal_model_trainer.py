@@ -9,13 +9,13 @@ import os
 from math import inf
 from typing import Dict, Any
 from tqdm import tqdm
-from configs.teacher_config import TeacherConfig
+from configs.model_config import ModelConfig
 
 logger = logging.getLogger(__name__)
 
 
 class LegalModelTrainer:
-    def __init__(self, model: nn.Module, config: TeacherConfig):
+    def __init__(self, model: nn.Module, config: ModelConfig):
         # Stores the model and config, chooses the device, and moves the model there.
         self.model = model
         self.config = config

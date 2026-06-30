@@ -4,19 +4,19 @@ from safetensors.torch import save_file, load_file
 import os
 import logging
 from tqdm import tqdm
-from configs.teacher_config import TeacherConfig
+from configs.model_config import ModelConfig
 
 logger = logging.getLogger(__name__)
 
 class SoftTargetExporter:
     @staticmethod
-    def export_all_splits(model: torch.nn.Module, dataloaders: dict, config: TeacherConfig) -> None:
+    def export_all_splits(model: torch.nn.Module, dataloaders: dict, config: ModelConfig) -> None:
         for split_name, dataloader in dataloaders.items():
             SoftTargetExporter.export(model, dataloader, config, split_name)
     
     @staticmethod
     @torch.no_grad() #no gradients are needed for inference
-    def export(model: torch.nn.Module, dataloader: DataLoader, config: TeacherConfig, split_name: str) -> None:
+    def export(model: torch.nn.Module, dataloader: DataLoader, config: ModelConfig, split_name: str) -> None:
         if len(dataloader) == 0:
             raise ValueError(f"Cannot export soft targets for empty split: {split_name}")
         

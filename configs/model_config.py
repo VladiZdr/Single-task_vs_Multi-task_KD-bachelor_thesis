@@ -7,7 +7,7 @@ from configs.Loss_functions import LossFunctions
 
 
 @dataclass
-class TeacherConfig:
+class ModelConfig:
     task_name: str
     num_labels: int
     problem_type: Literal["single_label", "multi_label"]

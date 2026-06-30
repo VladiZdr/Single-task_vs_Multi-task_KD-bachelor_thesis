@@ -2,11 +2,11 @@ import logging
 from datasets import Dataset as HFDataset
 from datasets import DatasetDict
 from torch.utils.data import DataLoader
-from configs.teacher_config import TeacherConfig
+from configs.model_config import ModelConfig
 from datasets_manipulation.prepare_datasets import prep_dataset
-from fine_tune_legal_bert.teacher_model import TeacherModel
-from fine_tune_legal_bert.legal_model_trainer import LegalModelTrainer
-from fine_tune_legal_bert.export_teacher_outputs import SoftTargetExporter
+from fine_tuning.legal_model import LegalModel
+from fine_tuning.legal_model_trainer import LegalModelTrainer
+from fine_tuning.export_teacher_outputs import SoftTargetExporter
 import torch
 import numpy as np
 import random
@@ -37,7 +37,7 @@ def seed_worker(worker_id: int) -> None:
     np.random.seed(worker_seed)
     random.seed(worker_seed)
 
-def run_task_pipeline(task_config: TeacherConfig) -> None:
+def run_task_pipeline(task_config: ModelConfig) -> None:
     logger.info(f"Initializing optimization pipeline for task: {task_config.task_name.upper()}")
     if task_config.epochs == 0:
         logger.info(f"Skipping task {task_config.task_name} because epochs=0.")
@@ -77,7 +77,7 @@ def run_task_pipeline(task_config: TeacherConfig) -> None:
     test_loader = DataLoader(test_dataset, batch_size=task_config.batch_size, shuffle=False)  # type: ignore
 
     # Build Legal-BERT with classification layer
-    model = TeacherModel(task_config)
+    model = LegalModel(task_config)
     
     trainer = LegalModelTrainer(model, task_config)
     # Train the model for specified epochs -> evaluate -> save best checkpoint
@@ -96,7 +96,7 @@ def run_task_pipeline(task_config: TeacherConfig) -> None:
 
 def main() -> None:
     # 1. Pipeline Definition for LEDGAR Provision Classification
-    ledgar_config = TeacherConfig(
+    ledgar_config = ModelConfig(
         task_name="ledgar",
         num_labels=100,
         problem_type="single_label",
@@ -107,7 +107,7 @@ def main() -> None:
     )
     
     # 2. Pipeline Definition for UNFAIR-ToS Terms Identification
-    unfair_tos_config = TeacherConfig(
+    unfair_tos_config = ModelConfig(
         task_name="unfair_tos",
         num_labels=8,
         problem_type="multi_label",
