@@ -118,8 +118,9 @@ def main() -> None:
         epochs=0,
         learning_rate=2e-5,
 
-        checkpoint_dir = "./datasets_store/checkpoints/ledgar_teacher",
-        output_dir = "./datasets_store/ds_with_teacher_outputs/ledgar_teacher_outputs",
+        unique_id_for_dir = "tester",
+        #checkpoint_dir = "./datasets_store/checkpoints/ledgar_teacher",
+        #output_dir = "./datasets_store/ds_with_teacher_outputs/ledgar_teacher_outputs",
         preprocessed_data_dir = "raw"
     )
     
@@ -136,8 +137,9 @@ def main() -> None:
         epochs=1,
         learning_rate=3e-5,
 
-        checkpoint_dir = "./datasets_store/checkpoints/unfair_tos_teacher",
-        output_dir = "./datasets_store/ds_with_teacher_outputs/unfair_tos_teacher_outputs",
+        unique_id_for_dir = "tester",
+        #checkpoint_dir = "./datasets_store/checkpoints/unfair_tos_teacher",
+        #output_dir = "./datasets_store/ds_with_teacher_outputs/unfair_tos_teacher_outputs",
         preprocessed_data_dir = "raw"
     )
     
