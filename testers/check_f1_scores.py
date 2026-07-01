@@ -7,24 +7,25 @@ from typing import Dict
 from fine_tuning.train_legal_model import prepare_dataloaders
 
 @torch.no_grad()
-def evaluate_unfair_tos_teacher_tester() -> Dict[str, float]:
-    unfair_tos_teacher_config = unfair_tos_teacher_tester
-    
+def evaluate_model(param_config: ModelConfig) -> Dict[str, float]:
+    current_config = param_config
+
     checkpoint_filename = "best_model.pt"
-    model_path = os.path.join(unfair_tos_teacher_config.checkpoint_dir, checkpoint_filename)
+    model_path = os.path.join(current_config.checkpoint_dir, checkpoint_filename)
 
     # Load the dataset from disk
-    train_loader, val_loader, test_loader = prepare_dataloaders(task_config=unfair_tos_teacher_config)
+    train_loader, val_loader, test_loader = prepare_dataloaders(task_config=current_config)
 
     # Load best model for the evaluation
-    model = LegalModel(unfair_tos_teacher_config)
-    model.load_state_dict(torch.load(model_path, map_location=torch.device(unfair_tos_teacher_config.device)))
+    model = LegalModel(current_config)
+    model.load_state_dict(torch.load(model_path, map_location=torch.device(current_config.device)))
 
-    trainer = LegalModelTrainer(model, unfair_tos_teacher_config)
+    trainer = LegalModelTrainer(model, current_config)
     metrics = trainer.evaluate(val_loader)
 
-    print(f"Evaluation metrics for {unfair_tos_teacher_config.task_name}: {metrics}")
+    print(f"Evaluation metrics for {current_config.task_name}: {metrics}")
     return metrics
 
 if __name__ == "__main__":
-    evaluate_unfair_tos_teacher_tester()
+    evaluate_model(param_config=unfair_tos_teacher_tester)
+    #evaluate_model(param_config=ledgar_teacher_tester)
