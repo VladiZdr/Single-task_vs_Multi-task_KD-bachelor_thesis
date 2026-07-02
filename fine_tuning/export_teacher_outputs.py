@@ -31,7 +31,7 @@ class SoftTargetExporter:
         accumulated_probs = []
         accumulated_labels = []
 
-        logger.info(f"Extracting soft labels for task: {config.task_name}, split: {split_name}")
+        logger.info(f"Extracting soft labels for task: {config.task_name}_{config.unique_id_for_dir}, split: {split_name}")
         
         for batch in tqdm(dataloader, desc=f"Exporting {split_name}"):
             input_ids = batch["input_ids"].to(device)
@@ -96,6 +96,7 @@ class SoftTargetExporter:
         }
         
         export_path = os.path.join(config.output_dir, f"teacher_{split_name}_outputs.safetensors")
+        #print(f"DEBUG: Saving to path: {export_path}")
         save_file(payload, export_path, metadata=metadata)
         logger.info(f"Successfully serialized soft targets to {export_path}")
 

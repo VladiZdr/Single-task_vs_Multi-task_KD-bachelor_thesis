@@ -88,7 +88,6 @@ def run_task_pipeline(task_config: ModelConfig) -> None:
 
     # Build Legal-BERT with classification layer
     model = LegalModel(task_config)
-    
     trainer = LegalModelTrainer(model, task_config)
 
     # Train the model for specified epochs -> evaluate -> save best checkpoint
@@ -111,7 +110,8 @@ def main() -> None:
     models_to_run = [
         #model_config.ledgar_teacher_tester,
         #model_config.unfair_tos_teacher_tester,
-        model_config.unfair_tos_supervised_student_tester
+        #model_config.unfair_tos_supervised_student_tester,
+        model_config.unfair_tos_check_correct_load_preprocessed_dataset
     ]
     for config in models_to_run:
         run_task_pipeline(config)
