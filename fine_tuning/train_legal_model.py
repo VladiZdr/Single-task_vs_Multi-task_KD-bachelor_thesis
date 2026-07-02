@@ -111,7 +111,7 @@ def main() -> None:
         #model_config.ledgar_teacher_tester,
         #model_config.unfair_tos_teacher_tester,
         #model_config.unfair_tos_supervised_student_tester,
-        model_config.unfair_tos_check_correct_load_preprocessed_dataset
+        #model_config.unfair_tos_check_correct_load_preprocessed_dataset
     ]
     for config in models_to_run:
         run_task_pipeline(config)
