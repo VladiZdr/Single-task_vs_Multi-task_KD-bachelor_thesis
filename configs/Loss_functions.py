@@ -9,21 +9,17 @@ class LossFunctions:
             return nn.CrossEntropyLoss(reduction=loss_reduction)
         elif problem_type == "multi_label" and loss_type == "bce_with_logits":
             return nn.BCEWithLogitsLoss(reduction=loss_reduction)
-        elif problem_type == "single_label" and loss_type == "kldiv":
-            return KDLoss(problem_type="single_label", T=T, alpha=alpha, reduction=loss_reduction)
-        elif problem_type == "multi_label" and loss_type == "kldiv":
-            return KDLoss(problem_type="multi_label", T=T, alpha=alpha, reduction=loss_reduction)
+        elif loss_type == "kldiv":
+            return KDLoss(problem_type=problem_type, T=T, alpha=alpha, reduction=loss_reduction)
         else:
-            raise ValueError(
-                f"Unsupported loss configuration: {problem_type} "
-                f"with loss type {loss_type}"
-            )
+            raise ValueError( f"Unsupported loss configuration: {problem_type} with loss type {loss_type}")
             
 
 class KDLoss(nn.Module):
     def __init__(self, problem_type: str, T=1.0, alpha=0.5, reduction='batchmean'):
         if problem_type not in ['single_label', 'multi_label']:
-            raise ValueError(f"Unsupported problem_type: {self.problem_type}")
+            raise ValueError(f"Unsupported problem_type: {problem_type} with loss type \"kldiv\"")
+        
         super(KDLoss, self).__init__()
         self.T = T
         self.alpha = alpha
@@ -38,11 +34,10 @@ class KDLoss(nn.Module):
     def forward(self, student_logits, teacher_logits, labels):
         student_loss = 0.0
         distillation_loss = 0.0
-
         
         if self.problem_type == 'single_label':
             # Student Loss (Gold Labels)
-            student_loss = F.cross_entropy(student_logits, labels)
+            student_loss = F.cross_entropy(student_logits, labels, reduction=self.reduction)
             
             # Distillation using KL Divergence on Softmax
             student_soft = F.log_softmax(student_logits / self.T, dim=1)
@@ -51,14 +46,14 @@ class KDLoss(nn.Module):
             
         elif self.problem_type == 'multi_label':
             # Student Loss (Gold Labels)
-            student_loss = F.binary_cross_entropy_with_logits(student_logits, labels)
+            student_loss = F.binary_cross_entropy_with_logits(student_logits, labels, reduction=self.reduction)
             
             # Distillation using Sigmoid for independent probabilities
             student_soft = F.logsigmoid(student_logits / self.T)
             teacher_soft = torch.sigmoid(teacher_logits / self.T)
             # Binary KL Divergence or BCE can be used here; using BCE for stability
-            distillation_loss = F.binary_cross_entropy(torch.sigmoid(student_logits / self.T), 
+            distillation_loss = F.binary_cross_entropy_with_logits(torch.sigmoid(student_logits / self.T), 
                                                         torch.sigmoid(teacher_logits / self.T), 
-                                                        reduction='mean') * (self.T ** 2)
+                                                        reduction=self.reduction) * (self.T ** 2)
         
         return (1 - self.alpha) * student_loss + (self.alpha * self.teacher_weight * distillation_loss)
