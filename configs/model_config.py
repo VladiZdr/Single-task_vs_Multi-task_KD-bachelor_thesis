@@ -8,18 +8,18 @@ from configs.Loss_functions import LossFunctions
 
 @dataclass
 class ModelConfig:
-    task_name: str
-    num_labels: int
+    task_name: Literal["ledgar", "unfair_tos"]
+    num_labels: Literal[8, 100]
     problem_type: Literal["single_label", "multi_label"]
     loss_type: Literal["cross_entropy", "bce_with_logits", "kldiv"]
-    model_name_or_path: str = "nlpaueb/legal-bert-base-uncased"
+    model_name_or_path: Literal["google/bert_uncased_L-4_H-256_A-4", "nlpaueb/legal-bert-base-uncased"] = "nlpaueb/legal-bert-base-uncased"
     
     # Cut data for quicker testing
-    num_of_batches: int = -1  # -1 means use all batches in the dataloader (affects only training, evaluation, and export will still process all batches)
-    percent_of_data: int = 100  # Percentage of data to use for training
+    num_of_batches: int = -1    # -1 means use all batches in the dataloader (affects only training, evaluation, and export will still process all batches)
+    percent_of_data: int = 100  # Use only "percent_of_data" % of the dataset for quicker testing
 
     # Optimization Hyperparameters
-    batch_size: int = 16
+    batch_size: int = 8
     learning_rate: float = 3e-5
     epochs: int = 1
     weight_decay: float = 0.01
@@ -37,13 +37,20 @@ class ModelConfig:
     checkpoint_dir: str = ""
     output_dir: str = ""
     unique_id_for_dir: str = ""
-    preprocessed_data_dir: Literal["raw", "./ds_with_teacher_outputs/ledgar_teacher_outputs", "./ds_with_teacher_outputs/unfair_tos_teacher_outputs"]  = "raw"
+    preprocessed_data_dir: Literal["raw", "./ds_with_teacher_outputs/ledgar_teacher_outputs", "./ds_with_teacher_outputs/unfair_tos_teacher_outputs"]  = "raw" # raw means the dataset will be preprocessed from scratch, otherwise it will be loaded from disk
     
     def __post_init__(self):
+        if self.task_name == "ledgar" and self.num_labels != 100:
+            raise ValueError(f"For task 'ledgar', num_labels must be 100, got {self.num_labels}.")
+        if self.task_name == "unfair_tos" and self.num_labels != 8:
+            raise ValueError(f"For task 'unfair_tos', num_labels must be 8, got {self.num_labels}.")
+        
         if self.num_labels <= 0:
             raise ValueError(f"num_labels must be positive, got {self.num_labels}")
+        
         if self.batch_size <= 0:
             raise ValueError(f"batch_size must be positive, got {self.batch_size}")
+        
         if self.epochs < 0:
             raise ValueError(f"epochs must be non-negative, got {self.epochs}")
         if not 0.0 <= self.warmup_ratio <= 1.0:
@@ -60,8 +67,8 @@ class ModelConfig:
             self.checkpoint_dir = f"./datasets_store/checkpoints/{self.task_name}_{self.unique_id_for_dir}"
         if not self.output_dir:
             self.output_dir = f"./datasets_store/ds_with_teacher_outputs/{self.task_name}_teacher_outputs_{self.unique_id_for_dir}"
-        os.makedirs(self.checkpoint_dir, exist_ok=True)
-        os.makedirs(self.output_dir, exist_ok=True)
+        os.makedirs(self.checkpoint_dir, exist_ok=True) # if the directory doesn't exist, create it
+        os.makedirs(self.output_dir, exist_ok=True)     # if the directory exists, do nothing -> it will be overwritten
 
         valid = {
         ("single_label", "cross_entropy"),
@@ -85,30 +92,86 @@ ledgar_teacher_tester = ModelConfig(
     num_labels=100,
     problem_type="single_label",
     loss_type="cross_entropy",
+    model_name_or_path="nlpaueb/legal-bert-base-uncased",
 
-    batch_size=32,
-    num_of_batches=-1,  # Limit to "num_of_batches" batches for quicker testing (influences only training, evaluation and export will still process all batches)
-    percent_of_data=1,  # Use only "percent_of_data" % of the dataset for quicker testing
-    epochs=0,
-    learning_rate=2e-5,
+    num_of_batches=-1,
+    percent_of_data=1,  
 
+    batch_size = 16,
+    learning_rate = 3e-5,
+    epochs = 0,
+    weight_decay = 0.01,
+    warmup_ratio = 0.1,
+    max_grad_norm = 1.0,
+    T = 1.0,
+    alpha = 0.5,
+    loss_reduction = "mean",
+
+    device = "auto",
+    seed = 42,
+
+    checkpoint_dir = "",
+    output_dir = "",
     unique_id_for_dir = "tester",
     preprocessed_data_dir = "raw"
 )
     
     # 2. Pipeline Definition for UNFAIR-ToS Terms Identification
+
 unfair_tos_teacher_tester = ModelConfig(
     task_name="unfair_tos",
     num_labels=8,
     problem_type="multi_label",
     loss_type="bce_with_logits",
+    model_name_or_path="nlpaueb/legal-bert-base-uncased",
 
+    percent_of_data=1,  
+    num_of_batches=-1,  
+    
     batch_size=4,
-    num_of_batches=-1,  # Limit to "num_of_batches" batches for quicker testing (influences only training, evaluation and export will still process all batches)
-    percent_of_data=1,  # Use only "percent_of_data" % of the dataset for quicker testing
     epochs=1,
     learning_rate=3e-5,
+    weight_decay = 0.01,
+    warmup_ratio = 0.1,
+    max_grad_norm = 1.0,
+    T = 1.0,
+    alpha = 0.5,
+    loss_reduction = "mean",
 
+    device = "auto",
+    seed = 42,
+
+    checkpoint_dir = "",
+    output_dir = "",
     unique_id_for_dir = "tester",
+    preprocessed_data_dir = "raw"
+)
+
+unfair_tos_supervised_student_tester = ModelConfig(
+    task_name="unfair_tos",
+    num_labels=8,
+    problem_type="multi_label",
+    loss_type="bce_with_logits",
+    model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
+
+    percent_of_data=1,  
+    num_of_batches=-1,  
+    
+    batch_size=4,
+    epochs=1,
+    learning_rate=3e-5,
+    weight_decay = 0.01,
+    warmup_ratio = 0.1,
+    max_grad_norm = 1.0,
+    T = 1.0,
+    alpha = 0.5,
+    loss_reduction = "mean",
+
+    device = "auto",
+    seed = 42,
+
+    checkpoint_dir = "",
+    output_dir = "",
+    unique_id_for_dir = "supervised_student_tester",
     preprocessed_data_dir = "raw"
 )

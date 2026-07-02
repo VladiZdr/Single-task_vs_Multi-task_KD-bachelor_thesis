@@ -24,8 +24,9 @@ class LegalModelTrainer:
 
         self.criterion = config.get_loss_criterion()
 
+    # Moves the batch to the appropriate device and ensures labels are in the correct format for the loss function.
     def _prepare_batch(self, batch: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor | None]:
-        # Moves the batch to the appropriate device and ensures labels are in the correct format 
+        
         labels = batch["labels"].to(self.device)
         if self.config.problem_type == "multi_label":
             labels = labels.float()
@@ -40,6 +41,7 @@ class LegalModelTrainer:
             "labels": labels,
         }
 
+    # One epoch of training: forward pass, loss computation, backward pass, optimizer step, and learning rate scheduling.
     def train_epoch(self, dataloader: DataLoader, optimizer: AdamW, scheduler: Any) -> float:
         if len(dataloader) == 0:
             raise ValueError("Cannot train with an empty dataloader")
@@ -83,6 +85,7 @@ class LegalModelTrainer:
         # Mean training loss for the epoch.
         return total_loss / len(dataloader)
 
+    # Evaluates the model on a validation or test set, computing loss and F1 scores.
     @torch.no_grad()
     def evaluate(self, dataloader: DataLoader) -> Dict[str, float]:
         if len(dataloader) == 0:
@@ -143,11 +146,7 @@ class LegalModelTrainer:
         # Calculate total training steps and warmup steps for the learning rate scheduler
         total_steps = len(train_loader) * self.config.epochs
         warmup_steps = int(total_steps * self.config.warmup_ratio)
-        scheduler = get_linear_schedule_with_warmup(
-            optimizer, 
-            num_warmup_steps=warmup_steps, 
-            num_training_steps=total_steps
-        )
+        scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=warmup_steps, num_training_steps=total_steps)
         
         # Model is saved whenever validation macro-F1 improves, including the first epoch.
         best_macro_f1 = -inf

@@ -39,4 +39,5 @@ class LegalModel(nn.Module):
         # Apply dropout and then pass through the classification head
         pooled_output = self.dropout(pooled_output)
         logits = self.classifier(pooled_output)
+        
         return logits

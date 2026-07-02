@@ -2,7 +2,8 @@ import logging
 from datasets import Dataset as HFDataset
 from datasets import DatasetDict
 from torch.utils.data import DataLoader
-from configs.model_config import ModelConfig, ledgar_teacher_tester, unfair_tos_teacher_tester
+from configs.model_config import ModelConfig
+import configs.model_config as model_config
 from datasets_manipulation.prepare_datasets import prep_dataset_from_raw
 from datasets_manipulation.preprocess_dataset import _load_valid_dataset_dict
 from fine_tuning.legal_model import LegalModel
@@ -41,7 +42,7 @@ def seed_worker(worker_id: int) -> None:
 def prepare_dataloaders(task_config: ModelConfig) -> tuple[DataLoader, DataLoader, DataLoader]:
     set_all_seeds(task_config.seed)
     
-    # Load tokenized datasets
+    # Load tokenized datasets from specified directory: raw -> preprocess from scratch, otherwise load from disk (for knowledge distillation)
     if task_config.preprocessed_data_dir == "raw":
         preprocessed = prep_dataset_from_raw(dataset_name=task_config.task_name, seed=task_config.seed, percent_of_data=task_config.percent_of_data)
     else:
@@ -78,7 +79,7 @@ def prepare_dataloaders(task_config: ModelConfig) -> tuple[DataLoader, DataLoade
     return train_loader, val_loader, test_loader
 
 def run_task_pipeline(task_config: ModelConfig) -> None:
-    logger.info(f"Initializing optimization pipeline for task: {task_config.task_name.upper()}")
+    logger.info(f"Initializing optimization pipeline for task: {task_config.task_name.upper()}_{task_config.unique_id_for_dir} with {task_config.epochs} epochs, {task_config.batch_size} batch size, and {task_config.percent_of_data}% of the dataset.")
     if task_config.epochs == 0:
         logger.info(f"Skipping task {task_config.task_name} because epochs=0.")
         return
@@ -107,7 +108,12 @@ def run_task_pipeline(task_config: ModelConfig) -> None:
 def main() -> None:
     
     # Run the configurations sequentially
-    for config in [ledgar_teacher_tester, unfair_tos_teacher_tester]:
+    models_to_run = [
+        #model_config.ledgar_teacher_tester,
+        #model_config.unfair_tos_teacher_tester,
+        model_config.unfair_tos_supervised_student_tester
+    ]
+    for config in models_to_run:
         run_task_pipeline(config)
 
 if __name__ == "__main__":
