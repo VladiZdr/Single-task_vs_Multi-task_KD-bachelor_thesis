@@ -96,12 +96,11 @@ class SoftTargetExporter:
         }
         
         export_path = os.path.join(config.output_dir, f"teacher_{split_name}_outputs.safetensors")
-        #print(f"DEBUG: Saving to path: {export_path}")
         save_file(payload, export_path, metadata=metadata)
         logger.info(f"Successfully serialized soft targets to {export_path}")
 
     @staticmethod
-    def verify_unfair_tos_exports(directory_path="./datasets_store/ds_with_teacher_outputs/unfair_tos_teacher_outputs"):
+    def verify_exports(directory_path="./datasets_store/ds_with_teacher_outputs/unfair_tos_teacher_outputs"):
         """
         Scans the outputs folder, loads a generated SafeTensors split,
         checks if all mandatory columns are present, and displays the dimensions 

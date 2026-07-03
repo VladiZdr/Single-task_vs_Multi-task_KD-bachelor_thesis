@@ -16,7 +16,7 @@ class LossFunctions:
             
 
 class KDLoss(nn.Module):
-    def __init__(self, problem_type: str, T=1.0, alpha=0.5, reduction='batchmean'):
+    def __init__(self, problem_type: str, T=1.0, alpha=0.5, reduction='mean'):
         if problem_type not in ['single_label', 'multi_label']:
             raise ValueError(f"Unsupported problem_type: {problem_type} with loss type \"kldiv\"")
         
@@ -34,26 +34,23 @@ class KDLoss(nn.Module):
     def forward(self, student_logits, teacher_logits, labels):
         student_loss = 0.0
         distillation_loss = 0.0
+
+        # Map generic 'mean' to 'batchmean' exclusively for KL Div to avoid warnings
+        kl_reduction = 'batchmean' if self.reduction == 'mean' else self.reduction
         
         if self.problem_type == 'single_label':
-            # Student Loss (Gold Labels)
             student_loss = F.cross_entropy(student_logits, labels, reduction=self.reduction)
             
-            # Distillation using KL Divergence on Softmax
             student_soft = F.log_softmax(student_logits / self.T, dim=1)
             teacher_soft = F.softmax(teacher_logits / self.T, dim=1)
-            distillation_loss = F.kl_div(student_soft, teacher_soft, reduction=self.reduction) * (self.T ** 2)
+            distillation_loss = F.kl_div(student_soft, teacher_soft, reduction=kl_reduction) * (self.T ** 2)
             
         elif self.problem_type == 'multi_label':
-            # Student Loss (Gold Labels)
             student_loss = F.binary_cross_entropy_with_logits(student_logits, labels, reduction=self.reduction)
             
-            # Distillation using Sigmoid for independent probabilities
-            student_soft = F.logsigmoid(student_logits / self.T)
-            teacher_soft = torch.sigmoid(teacher_logits / self.T)
-            # Binary KL Divergence or BCE can be used here; using BCE for stability
-            distillation_loss = F.binary_cross_entropy_with_logits(torch.sigmoid(student_logits / self.T), 
-                                                        torch.sigmoid(teacher_logits / self.T), 
-                                                        reduction=self.reduction) * (self.T ** 2)
-        
+            # Use standard BCE since we manually apply sigmoid to both teacher and student
+            student_probs = torch.sigmoid(student_logits / self.T)
+            teacher_probs = torch.sigmoid(teacher_logits / self.T)
+            distillation_loss = F.binary_cross_entropy(student_probs, teacher_probs, reduction=self.reduction) * (self.T ** 2)
+            
         return (1 - self.alpha) * student_loss + (self.alpha * self.teacher_weight * distillation_loss)
