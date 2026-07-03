@@ -28,6 +28,9 @@ class ModelConfig:
     T: float = 1.0
     alpha: float = 0.5
     loss_reduction : Literal["mean", "sum"] = "mean"
+    kd_teacher_weight_schedule: Literal["constant", "linear_epoch"] = "constant"
+    kd_teacher_weight_start: float = 1.0
+    kd_teacher_weight_end: float = 1.0
     
     # Hardware Routing
     device: Literal["auto", "cuda", "cpu"] = "auto"
@@ -56,6 +59,11 @@ class ModelConfig:
             raise ValueError(f"epochs must be non-negative, got {self.epochs}")
         if not 0.0 <= self.warmup_ratio <= 1.0:
             raise ValueError(f"warmup_ratio must be between 0 and 1, got {self.warmup_ratio}")
+
+        if not 0.0 <= self.kd_teacher_weight_start <= 1.0:
+            raise ValueError(f"kd_teacher_weight_start must be between 0 and 1, got {self.kd_teacher_weight_start}")
+        if not 0.0 <= self.kd_teacher_weight_end <= 1.0:
+            raise ValueError(f"kd_teacher_weight_end must be between 0 and 1, got {self.kd_teacher_weight_end}")
 
         if self.device == "auto":
             self.device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -88,6 +96,16 @@ class ModelConfig:
     def get_loss_criterion(self) -> nn.Module:
         return LossFunctions.get_loss_function(self.problem_type, self.loss_type, self.loss_reduction, self.T, self.alpha)
 
+    def get_kd_teacher_weight(self, epoch_index: int, total_epochs: int) -> float:
+        if self.loss_type != "kldiv":
+            return 1.0
+
+        if self.kd_teacher_weight_schedule == "constant" or total_epochs <= 1:
+            return self.kd_teacher_weight_start
+
+        progress = max(0.0, min(epoch_index / (total_epochs - 1), 1.0))
+        return self.kd_teacher_weight_start + progress * (self.kd_teacher_weight_end - self.kd_teacher_weight_start)
+
 # Testers  
 ledgar_teacher_tester = ModelConfig(
     task_name="ledgar",
@@ -108,6 +126,9 @@ ledgar_teacher_tester = ModelConfig(
     T = 1.0,
     alpha = 0.5,
     loss_reduction = "mean",
+    kd_teacher_weight_schedule = "constant",
+    kd_teacher_weight_start = 1.0,
+    kd_teacher_weight_end = 1.0,
 
     device = "auto",
     seed = 42,
@@ -139,6 +160,9 @@ unfair_tos_teacher_tester = ModelConfig(
     T = 1.0,
     alpha = 0.5,
     loss_reduction = "mean",
+    kd_teacher_weight_schedule = "constant",
+    kd_teacher_weight_start = 1.0,
+    kd_teacher_weight_end = 1.0,
 
     device = "auto",
     seed = 42,
@@ -168,6 +192,9 @@ unfair_tos_supervised_student_tester = ModelConfig(
     T = 1.0,
     alpha = 0.5,
     loss_reduction = "mean",
+    kd_teacher_weight_schedule = "constant",
+    kd_teacher_weight_start = 1.0,
+    kd_teacher_weight_end = 1.0,
 
     device = "auto",
     seed = 42,
@@ -197,6 +224,9 @@ unfair_tos_check_correct_load_preprocessed_dataset = ModelConfig(
     T = 1.0,
     alpha = 0.5,
     loss_reduction = "mean",
+    kd_teacher_weight_schedule = "constant",
+    kd_teacher_weight_start = 1.0,
+    kd_teacher_weight_end = 1.0,
 
     device = "auto",
     seed = 42,
@@ -218,7 +248,7 @@ unfair_tos_kd_student_tester = ModelConfig(
     num_of_batches=-1,  
     
     batch_size=4,
-    epochs=1,
+    epochs=2,
     learning_rate=3e-5,
     weight_decay = 0.01,
     warmup_ratio = 0.1,
@@ -226,6 +256,9 @@ unfair_tos_kd_student_tester = ModelConfig(
     T = 1.0,
     alpha = 0.5,
     loss_reduction = "mean",
+    kd_teacher_weight_schedule = "linear_epoch",
+    kd_teacher_weight_start = 1.0,
+    kd_teacher_weight_end = 0.0,
 
     device = "auto",
     seed = 42,
@@ -237,6 +270,7 @@ unfair_tos_kd_student_tester = ModelConfig(
 )
 
 """
+# TODO: add kd_teacher_weight_schedule
 # Teachers
 ledgar_teacher = ModelConfig(
     task_name="ledgar",

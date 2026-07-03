@@ -1,6 +1,7 @@
 import torch
 from torch.utils.data import DataLoader
-from safetensors.torch import save_file, load_file
+from safetensors import safe_open
+from safetensors.torch import save_file
 import os
 import logging
 from tqdm import tqdm
@@ -9,6 +10,9 @@ from configs.model_config import ModelConfig
 logger = logging.getLogger(__name__)
 
 class SoftTargetExporter:
+    REQUIRED_COLUMNS = {"input_ids", "attention_mask", "logits", "probabilities", "labels"}
+    OPTIONAL_COLUMNS = {"token_type_ids"}
+
     @staticmethod
     def export_all_splits(model: torch.nn.Module, dataloaders: dict, config: ModelConfig) -> None:
         for split_name, dataloader in dataloaders.items():
@@ -49,7 +53,7 @@ class SoftTargetExporter:
                 probs = torch.sigmoid(logits)
             else:
                 probs = torch.softmax(logits, dim=-1)
-                
+
             # Move data to CPU and append to lists
             accumulated_input_ids.append(input_ids.cpu())
             accumulated_attention_masks.append(attention_mask.cpu())
@@ -57,7 +61,7 @@ class SoftTargetExporter:
                 accumulated_token_type_ids.append(token_type_ids.cpu())
             accumulated_logits.append(logits.cpu())
             accumulated_probs.append(probs.cpu())
-            accumulated_labels.append(labels)
+            accumulated_labels.append(labels.cpu())
             
         # Because GPUs have limited memory, we can't feed all our legal text into legal_bert at once. 
         # Instead, we break the data into small batches. 
@@ -71,7 +75,7 @@ class SoftTargetExporter:
         final_labels = torch.cat(accumulated_labels, dim=0)
         
         # Structural Sanity Assertions
-        assert (final_logits.shape[0] == final_input_ids.shape[0]), "Batch size mismatch between logits and input_ids"
+        assert final_logits.shape[0] == final_input_ids.shape[0], "Batch size mismatch between logits and input_ids"
         assert final_logits.shape[0] == len(dataloader.dataset), "Sample count mismatch in output"                      # type: ignore
         assert final_logits.shape[1] == config.num_labels, "Logit dimension mismatch with label count"
         
@@ -100,96 +104,115 @@ class SoftTargetExporter:
         logger.info(f"Successfully serialized soft targets to {export_path}")
 
     @staticmethod
-    def verify_exports(directory_path: str) -> None:
+    def verify_exports(directory_path: str) -> dict[str, dict[str, object]]:
         """
-        Scans the outputs folder, loads a generated SafeTensors split,
-        checks if all mandatory columns are present, and displays the dimensions 
-        and a formatted sample at index 0.
+        Scans the outputs folder, loads each generated SafeTensors split,
+        checks that all mandatory columns are present, and validates that the
+        stored tensors are consistent with the task metadata.
         """
         if not os.path.exists(directory_path):
-            print(f"Error: Target directory '{directory_path}' does not exist.")
-            print("Make sure you have run the teacher fine-tuning program first.")
-            return
+            raise FileNotFoundError(
+                f"Target directory '{directory_path}' does not exist. Make sure the export step has run first."
+            )
 
-        # Scan the directory for serialized teacher outputs
-        files = [f for f in os.listdir(directory_path) if f.endswith(".safetensors")]
-        if not files:
-            print(f"Error: No .safetensors files found in '{directory_path}'.")
-            return
+        required_splits = ("train", "validation", "test")
+        split_files = {
+            split: os.path.join(directory_path, f"teacher_{split}_outputs.safetensors")
+            for split in required_splits
+        }
 
-        # Select the first available split to inspect (e.g., validation or test)
-        target_file = files[0]
-        file_path = os.path.join(directory_path, target_file)
-        
-        print("=" * 60)
-        print(f"Found Exported File: {target_file}")
-        print(f"Full Path:           {file_path}")
-        print("=" * 60)
+        missing_splits = [split for split, file_path in split_files.items() if not os.path.exists(file_path)]
+        if missing_splits:
+            raise FileNotFoundError(
+                f"Missing exported split files in '{directory_path}': {', '.join(missing_splits)}"
+            )
 
-        try:
-            # Load the dictionary of tensors directly from the SafeTensors file
-            tensors = load_file(file_path)
-        except Exception as e:
-            print(f"Error loading safetensors file: {e}")
-            return
+        verification_summary: dict[str, dict[str, object]] = {}
 
-        # These are the columns expected from your model pipeline exports
-        expected_columns = {"input_ids", "attention_mask", "logits", "probabilities", "labels"}
-        actual_columns = set(tensors.keys())
+        for split_name, file_path in split_files.items():
+            print("=" * 60)
+            print(f"Found Exported File: {os.path.basename(file_path)}")
+            print(f"Full Path:           {file_path}")
+            print("=" * 60)
 
-        # 1. Column Integrity Validation
-        print("\n[1] Column Presence Verification:")
-        all_valid = True
-        for col in expected_columns:
-            present = col in actual_columns
-            status = "✓ PRESENT" if present else "✗ MISSING"
-            print(f"  - {col:<16}: {status}")
-            if not present:
-                all_valid = False
+            with safe_open(file_path, framework="pt", device="cpu") as exported:
+                tensors = {key: exported.get_tensor(key) for key in exported.keys()}
+                metadata = exported.metadata() or {}
 
-        if not all_valid:
-            print("\n⚠️ WARNING: Your exported data is missing key fields required for distillation!")
-        else:
-            print("\n✓ SUCCESS: All essential columns are correctly serialized.")
+            expected_task = metadata.get("task_name")
+            problem_type = metadata.get("problem_type")
+            num_samples = int(metadata.get("num_samples", tensors["logits"].shape[0]))
+            num_classes = int(metadata.get("num_classes", tensors["logits"].shape[1]))
 
-        # 2. Schema and Datatype Summary
-        print("\n[2] Tensor Metadata & Specifications:")
-        for key, tensor in tensors.items():
-            shape_str = str(list(tensor.shape))
-            print(f"  - {key:<16}: shape={shape_str:<18} | dtype={str(tensor.dtype):<13} | device={tensor.device}")
+            actual_columns = set(tensors.keys())
+            missing_columns = SoftTargetExporter.REQUIRED_COLUMNS - actual_columns
+            if missing_columns:
+                raise AssertionError(
+                    f"Split '{split_name}' in '{directory_path}' is missing required columns: {sorted(missing_columns)}"
+                )
 
-        # 3. Shape Sanity Checking
-        print("\n[3] Pipeline Integrity Checks:")
-        num_samples = tensors["logits"].shape[0]
-        num_classes = tensors["logits"].shape[1]
-        
-        # Assert validation check to prevent bad logic downstream
-        assert num_classes == 8, f"Expected 8 label dimensions for UNFAIR-ToS, found {num_classes}."
-        print(f"  ✓ Label cardinality is correctly matched to 8 classes.")
-        
-        for key in expected_columns:
-            assert tensors[key].shape[0] == num_samples, f"Batch size mismatch on column: {key}!"
-        print(f"  ✓ Sample count is consistent across all {num_samples} records.")
+            print("\n[1] Column Presence Verification:")
+            for col in sorted(SoftTargetExporter.REQUIRED_COLUMNS | SoftTargetExporter.OPTIONAL_COLUMNS):
+                present = col in actual_columns
+                status = "PRESENT" if present else "MISSING"
+                print(f"  - {col:<16}: {status}")
 
-        # 4. Content Inspection of Sample 0
-        print("\n" + "=" * 60)
-        print("SAMPLE RECORD INSPECTION (Index 0)")
-        print("=" * 60)
-        
-        idx = 0
-        # Retrieve tokens, masking out padding values (0) to keep stdout readable
-        raw_tokens = tensors["input_ids"][idx].tolist()
-        clean_tokens = [tok for tok in raw_tokens if tok != 0]
-        
-        print(f"Input IDs (trimmed length={len(clean_tokens)}):\n  {clean_tokens}")
-        print(f"Attention Mask (first 30 steps):\n  {tensors['attention_mask'][idx][:30].tolist()}")
-        
-        # Check probabilities and ground truths
-        labels_list = tensors["labels"][idx].tolist()
-        probs_list = tensors["probabilities"][idx].tolist()
-        logits_list = tensors["logits"][idx].tolist()
+            print("\n[2] Tensor Metadata & Specifications:")
+            for key, tensor in tensors.items():
+                shape_str = str(list(tensor.shape))
+                print(
+                    f"  - {key:<16}: shape={shape_str:<18} | dtype={str(tensor.dtype):<13} | device={tensor.device}"
+                )
 
-        print(f"\nGround Truth Multi-Labels:\n  {labels_list}")
-        print(f"\nModel Raw Logits:\n  {[round(x, 4) for x in logits_list]}")
-        print(f"\nTeacher Output Probabilities (Sigmoids):\n  {[round(x, 4) for x in probs_list]}")
-        print("=" * 60)
+            if expected_task is not None:
+                if expected_task == "unfair_tos":
+                    assert num_classes == 8, f"Expected 8 label dimensions for UNFAIR-ToS, found {num_classes}."
+                elif expected_task == "ledgar":
+                    assert num_classes == 100, f"Expected 100 label dimensions for LEDGAR, found {num_classes}."
+
+            assert tensors["logits"].shape[0] == num_samples, "Metadata sample count does not match logits"
+            assert tensors["logits"].shape[1] == num_classes, "Metadata class count does not match logits"
+
+            for key in SoftTargetExporter.REQUIRED_COLUMNS:
+                assert tensors[key].shape[0] == num_samples, f"Batch size mismatch on column: {key}!"
+
+            if problem_type == "multi_label":
+                expected_probs = torch.sigmoid(tensors["logits"])
+                assert tensors["labels"].shape == tensors["logits"].shape, "Multi-label exports must store dense label vectors"
+            elif problem_type == "single_label":
+                expected_probs = torch.softmax(tensors["logits"], dim=-1)
+                assert tensors["labels"].shape[0] == num_samples, "Single-label exports must store one label per sample"
+            else:
+                raise AssertionError(f"Unknown problem type in metadata: {problem_type}")
+
+            assert torch.allclose(
+                tensors["probabilities"],
+                expected_probs,
+                atol=1e-6,
+                rtol=1e-5,
+            ), f"Probability tensor in '{split_name}' does not match the logits-derived expectation"
+
+            print("\n[3] Pipeline Integrity Checks:")
+            print(f"  ✓ Split '{split_name}' contains {num_samples} records and {num_classes} classes.")
+            print(f"  ✓ Metadata task: {expected_task}, problem type: {problem_type}")
+
+            idx = 0
+            raw_tokens = tensors["input_ids"][idx].tolist()
+            clean_tokens = [tok for tok in raw_tokens if tok != 0]
+
+            print("\n[4] Sample 0 Inspection:")
+            print(f"  Input IDs (trimmed length={len(clean_tokens)}): {clean_tokens}")
+            print(f"  Attention mask head: {tensors['attention_mask'][idx][:30].tolist()}")
+            print(f"  Labels head: {tensors['labels'][idx].tolist()}")
+            print(f"  Logits head: {[round(x, 4) for x in tensors['logits'][idx].tolist()]}")
+            print(f"  Probabilities head: {[round(x, 4) for x in tensors['probabilities'][idx].tolist()]}")
+
+            verification_summary[split_name] = {
+                "path": file_path,
+                "task_name": expected_task,
+                "problem_type": problem_type,
+                "num_samples": num_samples,
+                "num_classes": num_classes,
+            }
+
+        return verification_summary

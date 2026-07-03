@@ -23,6 +23,15 @@ class LegalModelTrainer:
         self.model.to(self.device)
 
         self.criterion = config.get_loss_criterion()
+        self._sync_teacher_weight(epoch_index=0)
+
+    def _sync_teacher_weight(self, epoch_index: int) -> None:
+        if hasattr(self.criterion, "set_teacher_weight"):
+            teacher_weight = self.config.get_kd_teacher_weight(epoch_index, max(self.config.epochs, 1))
+            self.criterion.set_teacher_weight(teacher_weight)                                                               #type: ignore
+            logger.info(
+                f"KD teacher weight set to {teacher_weight:.4f} for epoch {epoch_index + 1}/{max(self.config.epochs, 1)}"
+            )
 
     # Moves the batch to the appropriate device and ensures labels are in the correct format for the loss function.
     def _prepare_batch(self, batch: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor | None]:
@@ -57,6 +66,7 @@ class LegalModelTrainer:
         self.model.train()
         total_loss = 0.0
         current_batch_count = 0
+        processed_batches = 0
 
         for batch in tqdm(dataloader, desc="Training Iteration"):
             # If num_of_batches is set to a positive integer, we limit the number of batches processed per epoch.
@@ -74,7 +84,7 @@ class LegalModelTrainer:
 
             # Forward pass to compute logits and loss
             logits = self.model( prepared["input_ids"], prepared["attention_mask"], prepared["token_type_ids"])
-            assert logits.shape[0] == labels.shape[0],        "Batch size mismatch"      # type: ignore
+            assert logits.shape[0] == labels.shape[0],        "Batch size mismatch"                                 # type: ignore
             assert logits.shape[1] == self.config.num_labels, "Logit dimension mismatch"
             
             # Compute loss depending on whether Knowledge Distillation is used
@@ -94,9 +104,10 @@ class LegalModelTrainer:
 
             # Track epoch loss
             total_loss += float(loss.item())
+            processed_batches += 1
 
         # Mean training loss for the epoch.
-        return total_loss / len(dataloader)
+        return total_loss / processed_batches
 
     # Evaluates the model on a validation or test set, computing loss and F1 scores.
     @torch.no_grad()
@@ -109,6 +120,7 @@ class LegalModelTrainer:
 
         all_preds = []
         all_labels = []
+        processed_batches = 0
 
         for batch in tqdm(dataloader, desc="Evaluation Iteration"):
             prepared = self._prepare_batch(batch)
@@ -133,8 +145,9 @@ class LegalModelTrainer:
             # Collect predictions and labels (later passed to F1 scoring.)
             all_preds.extend(preds)
             all_labels.extend(labels.detach().cpu().numpy())                                 # type: ignore
+            processed_batches += 1
 
-        avg_loss = total_loss / len(dataloader)
+        avg_loss = total_loss / processed_batches
         macro_f1 = float(f1_score(all_labels, all_preds, average="macro", zero_division=0))
         micro_f1 = float(f1_score(all_labels, all_preds, average="micro", zero_division=0))
 
@@ -162,7 +175,11 @@ class LegalModelTrainer:
         optimizer = AdamW(optimizer_grouped_parameters, lr=self.config.learning_rate)
         
         # Calculate total training steps and warmup steps for the learning rate scheduler
-        total_steps = len(train_loader) * self.config.epochs
+        effective_train_batches = len(train_loader)
+        if self.config.num_of_batches > 0:
+            effective_train_batches = min(effective_train_batches, self.config.num_of_batches)
+
+        total_steps = effective_train_batches * self.config.epochs
         warmup_steps = int(total_steps * self.config.warmup_ratio)
         scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=warmup_steps, num_training_steps=total_steps)
         
@@ -173,6 +190,7 @@ class LegalModelTrainer:
         # Loop over epochs, training and evaluating the model -> save the best checkpoint based on validation macro-F1 score
         for epoch in range(self.config.epochs):
             logger.info(f"Epoch {epoch + 1}/{self.config.epochs}")
+            self._sync_teacher_weight(epoch)
             
             train_loss = self.train_epoch(train_loader, optimizer, scheduler)
             metrics = self.evaluate(val_loader)
