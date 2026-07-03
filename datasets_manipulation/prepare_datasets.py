@@ -5,6 +5,7 @@ from pathlib import Path
 from datasets import Dataset, DatasetDict
 from datasets_manipulation.raw_loader import load_dataset_raw
 from datasets_manipulation.preprocess_dataset import preprocess_dataset
+from safetensors.torch import load_file
 
 def prep_dataset_from_raw(dataset_name: str, sample: int = 0, seed: int = 42, percent_of_data: int = 100) -> DatasetDict | Dataset:
     """
@@ -49,6 +50,25 @@ def prep_dataset_from_raw(dataset_name: str, sample: int = 0, seed: int = 42, pe
 
     # Preprocess the dataset
     return preprocess_dataset(raw_dataset_dir=raw_dataset_dir, sample=sample)
+
+def load_teacher_safetensors_to_datasetdict(data_dir: str) -> DatasetDict:
+    """Loads split safetensor files into a Hugging Face DatasetDict."""
+    splits = ["train", "validation", "test"] 
+    dataset_dict = {}
+    
+    for split in splits:
+        file_path = os.path.join(data_dir, f"teacher_{split}_outputs.safetensors")
+        if os.path.exists(file_path):
+            # 1. Load the tensors
+            tensors_dict = load_file(file_path)
+            
+            # 2. Convert to Hugging Face Dataset (converting to numpy first avoids memory duplication warnings)
+            dataset_dict[split] = Dataset.from_dict({k: v.numpy() for k, v in tensors_dict.items()})
+            
+    if not dataset_dict:
+        raise FileNotFoundError(f"No teacher output .safetensors files found in {data_dir}")
+        
+    return DatasetDict(dataset_dict)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

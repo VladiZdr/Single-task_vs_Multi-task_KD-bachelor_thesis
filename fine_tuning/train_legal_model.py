@@ -4,7 +4,7 @@ from datasets import DatasetDict
 from torch.utils.data import DataLoader
 from configs.model_config import ModelConfig
 import configs.model_config as model_config
-from datasets_manipulation.prepare_datasets import prep_dataset_from_raw
+from datasets_manipulation.prepare_datasets import prep_dataset_from_raw, load_teacher_safetensors_to_datasetdict
 from datasets_manipulation.preprocess_dataset import _load_valid_dataset_dict
 from fine_tuning.legal_model import LegalModel
 from fine_tuning.legal_model_trainer import LegalModelTrainer
@@ -42,11 +42,15 @@ def seed_worker(worker_id: int) -> None:
 def prepare_dataloaders(task_config: ModelConfig) -> tuple[DataLoader, DataLoader, DataLoader]:
     set_all_seeds(task_config.seed)
     
-    # Load tokenized datasets from specified directory: raw -> preprocess from scratch, otherwise load from disk (for knowledge distillation)
+    # Load tokenized datasets from specified directory
     if task_config.preprocessed_data_dir == "raw":
         preprocessed = prep_dataset_from_raw(dataset_name=task_config.task_name, seed=task_config.seed, percent_of_data=task_config.percent_of_data)
+    # Catch KD pipelines and load the safetensors instead
+    elif task_config.loss_type == 'kldiv':
+        preprocessed = load_teacher_safetensors_to_datasetdict(task_config.preprocessed_data_dir)
     else:
-        preprocessed = _load_valid_dataset_dict(task_config.preprocessed_data_dir)  # Load preprocessed dataset from disk
+        # Standard Hugging Face Arrow datasets
+        preprocessed = _load_valid_dataset_dict(task_config.preprocessed_data_dir)
 
     if isinstance(preprocessed, DatasetDict):
         train_dataset = preprocessed["train"]
@@ -105,7 +109,7 @@ def run_task_pipeline(task_config: ModelConfig) -> None:
     
     # Export predictions for downstream knowledge distillation
     SoftTargetExporter.export_all_splits(model, {"train": train_loader, "validation": val_loader, "test": test_loader}, task_config)
-    logger.info(f"Task pipeline for {task_config.task_name} successfully executed.\n" + "="*80)
+    logger.info(f"Task pipeline for {task_config.task_name}_{task_config.unique_id_for_dir} successfully executed.\n" + "="*80)
 
 def main() -> None:
     
@@ -114,7 +118,8 @@ def main() -> None:
         #model_config.ledgar_teacher_tester,
         model_config.unfair_tos_teacher_tester,
         model_config.unfair_tos_supervised_student_tester,
-        model_config.unfair_tos_check_correct_load_preprocessed_dataset
+        model_config.unfair_tos_check_correct_load_preprocessed_dataset,
+        model_config.unfair_tos_kd_student_tester,
     ]
     for config in models_to_run:
         run_task_pipeline(config)

@@ -38,7 +38,7 @@ class ModelConfig:
     output_dir: str = ""
     unique_id_for_dir: str = ""
     # raw means the dataset will be preprocessed from scratch, otherwise it will be loaded from disk
-    preprocessed_data_dir: Literal["raw", "./datasets_store/unfair_tos_preprocessed", "./datasets_store/ds_with_teacher_outputs/ledgar_teacher_outputs", "./datasets_store/ds_with_teacher_outputs/unfair_tos_teacher_outputs"]  = "raw" 
+    preprocessed_data_dir: Literal["raw", "./datasets_store/ds_with_teacher_outputs/unfair_tos_teacher_outputs_tester", "./datasets_store/unfair_tos_preprocessed", "./datasets_store/ds_with_teacher_outputs/ledgar_teacher_outputs", "./datasets_store/ds_with_teacher_outputs/unfair_tos_teacher_outputs"]  = "raw" 
     
     def __post_init__(self):
         if self.task_name == "ledgar" and self.num_labels != 100:
@@ -205,6 +205,35 @@ unfair_tos_check_correct_load_preprocessed_dataset = ModelConfig(
     output_dir = "",
     unique_id_for_dir = "check_correct_load",
     preprocessed_data_dir = "./datasets_store/unfair_tos_preprocessed"
+)
+
+unfair_tos_kd_student_tester = ModelConfig(
+    task_name="unfair_tos",
+    num_labels=8,
+    problem_type="multi_label",
+    loss_type="kldiv",
+    model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
+
+    percent_of_data=1,  
+    num_of_batches=-1,  
+    
+    batch_size=4,
+    epochs=1,
+    learning_rate=3e-5,
+    weight_decay = 0.01,
+    warmup_ratio = 0.1,
+    max_grad_norm = 1.0,
+    T = 1.0,
+    alpha = 0.5,
+    loss_reduction = "mean",
+
+    device = "auto",
+    seed = 42,
+
+    checkpoint_dir = "",
+    output_dir = "",
+    unique_id_for_dir = "kd_student_tester",
+    preprocessed_data_dir = "./datasets_store/ds_with_teacher_outputs/unfair_tos_teacher_outputs_tester"
 )
 
 """
