@@ -4,8 +4,7 @@ from datasets import DatasetDict
 from torch.utils.data import DataLoader
 from configs.model_config import ModelConfig
 import configs.model_config as model_config
-from datasets_manipulation.prepare_datasets import prep_dataset_from_raw, load_teacher_safetensors_to_datasetdict
-from datasets_manipulation.preprocess_dataset import _load_valid_dataset_dict
+from datasets_manipulation.prepare_datasets import prep_dataset_from_raw, smart_load_dataset
 from fine_tuning.legal_model import LegalModel
 from fine_tuning.legal_model_trainer import LegalModelTrainer
 from fine_tuning.export_teacher_outputs import SoftTargetExporter
@@ -42,15 +41,13 @@ def seed_worker(worker_id: int) -> None:
 def prepare_dataloaders(task_config: ModelConfig) -> tuple[DataLoader, DataLoader, DataLoader]:
     set_all_seeds(task_config.seed)
     
-    # Load tokenized datasets from specified directory
+    # Load tokenized from disk if available, otherwise preprocess from raw data
     if task_config.preprocessed_data_dir == "raw":
         preprocessed = prep_dataset_from_raw(dataset_name=task_config.task_name, seed=task_config.seed, percent_of_data=task_config.percent_of_data)
-    # Catch KD pipelines and load the safetensors instead
-    elif task_config.loss_type == 'kldiv':
-        preprocessed = load_teacher_safetensors_to_datasetdict(task_config.preprocessed_data_dir)
+    # If the preprocessed dataset is already available, load it directly from disk 
+    # (smart_load_dataset handles both Hugging Face DatasetDict and Datasets of .safetensors)
     else:
-        # Standard Hugging Face Arrow datasets
-        preprocessed = _load_valid_dataset_dict(task_config.preprocessed_data_dir)
+        preprocessed = smart_load_dataset(task_config.preprocessed_data_dir)
 
     if isinstance(preprocessed, DatasetDict):
         train_dataset = preprocessed["train"]

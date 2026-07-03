@@ -4,7 +4,7 @@ import argparse
 from pathlib import Path
 from datasets import Dataset, DatasetDict
 from datasets_manipulation.raw_loader import load_dataset_raw
-from datasets_manipulation.preprocess_dataset import preprocess_dataset
+from datasets_manipulation.preprocess_dataset import preprocess_dataset, _load_valid_dataset_dict
 from safetensors.torch import load_file
 
 def prep_dataset_from_raw(dataset_name: str, sample: int = 0, seed: int = 42, percent_of_data: int = 100) -> DatasetDict | Dataset:
@@ -69,6 +69,27 @@ def load_teacher_safetensors_to_datasetdict(data_dir: str) -> DatasetDict:
         raise FileNotFoundError(f"No teacher output .safetensors files found in {data_dir}")
         
     return DatasetDict(dataset_dict)
+
+def smart_load_dataset(data_dir: str) -> DatasetDict:
+    """
+    Dynamically detects the dataset format on disk and loads it 
+    using the appropriate strategy.
+    """
+    if not os.path.isdir(data_dir):
+        raise FileNotFoundError(f"The directory '{data_dir}' does not exist.")
+
+    # Check if the directory contains teacher safetensors files
+    has_teacher_safetensors = any(
+        f.startswith("teacher_") and f.endswith(".safetensors") 
+        for f in os.listdir(data_dir)
+    )
+
+    if has_teacher_safetensors:
+        # Not a standard Hugging Face dataset directory layout
+        return load_teacher_safetensors_to_datasetdict(data_dir)
+    
+    # Fall back to standard Hugging Face loading
+    return _load_valid_dataset_dict(data_dir)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
