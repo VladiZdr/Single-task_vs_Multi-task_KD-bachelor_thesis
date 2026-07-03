@@ -29,6 +29,6 @@ def evaluate_model(param_config: ModelConfig) -> Dict[str, float]:
 
 if __name__ == "__main__":
     evaluate_model(param_config=model_config.unfair_tos_check_correct_load_preprocessed_dataset)
-    #evaluate_model(param_config=model_config.unfair_tos_supervised_student_tester)
-    #evaluate_model(param_config=model_config.unfair_tos_teacher_tester)
+    evaluate_model(param_config=model_config.unfair_tos_supervised_student_tester)
+    evaluate_model(param_config=model_config.unfair_tos_teacher_tester)
     #evaluate_model(param_config=model_config.ledgar_teacher_tester)

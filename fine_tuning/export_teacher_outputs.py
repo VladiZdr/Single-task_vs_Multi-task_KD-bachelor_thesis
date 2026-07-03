@@ -100,7 +100,7 @@ class SoftTargetExporter:
         logger.info(f"Successfully serialized soft targets to {export_path}")
 
     @staticmethod
-    def verify_exports(directory_path="./datasets_store/ds_with_teacher_outputs/unfair_tos_teacher_outputs"):
+    def verify_exports(directory_path: str) -> None:
         """
         Scans the outputs folder, loads a generated SafeTensors split,
         checks if all mandatory columns are present, and displays the dimensions 
