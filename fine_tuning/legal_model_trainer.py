@@ -34,12 +34,19 @@ class LegalModelTrainer:
             labels = labels.long()
 
         token_type_ids = batch.get("token_type_ids")
-        return {
+        # Build the base prepared dictionary
+        prepared = {
             "input_ids": batch["input_ids"].to(self.device),
             "attention_mask": batch["attention_mask"].to(self.device),
             "token_type_ids": token_type_ids.to(self.device) if token_type_ids is not None else None,
             "labels": labels,
         }
+        
+        # Extract teacher logits if Knowledge Distillation is active
+        if "logits" in batch:
+            prepared["logits"] = batch["logits"].to(self.device)
+            
+        return prepared
 
     # One epoch of training: forward pass, loss computation, backward pass, optimizer step, and learning rate scheduling.
     def train_epoch(self, dataloader: DataLoader, optimizer: AdamW, scheduler: Any) -> float:
@@ -69,7 +76,13 @@ class LegalModelTrainer:
             logits = self.model( prepared["input_ids"], prepared["attention_mask"], prepared["token_type_ids"])
             assert logits.shape[0] == labels.shape[0],        "Batch size mismatch"      # type: ignore
             assert logits.shape[1] == self.config.num_labels, "Logit dimension mismatch"
-            loss = self.criterion(logits, labels)
+            
+            # Compute loss depending on whether Knowledge Distillation is used
+            if self.config.loss_type == 'kldiv':
+                teacher_logits = prepared["logits"]
+                loss = self.criterion(logits, teacher_logits, labels)
+            else:
+                loss = self.criterion(logits, labels)
 
             # Backward pass and optimization step
             loss.backward()
@@ -102,7 +115,12 @@ class LegalModelTrainer:
             labels = prepared["labels"]
             
             logits = self.model( prepared["input_ids"], prepared["attention_mask"], prepared["token_type_ids"])
-            loss = self.criterion(logits, labels)
+            # Compute loss depending on whether Knowledge Distillation is used
+            if self.config.loss_type == 'kldiv':
+                teacher_logits = prepared["logits"]
+                loss = self.criterion(logits, teacher_logits, labels)
+            else:
+                loss = self.criterion(logits, labels)
 
             total_loss += float(loss.item())
 

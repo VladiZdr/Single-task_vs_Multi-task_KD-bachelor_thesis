@@ -128,7 +128,7 @@ unfair_tos_teacher_tester = ModelConfig(
     model_name_or_path="nlpaueb/legal-bert-base-uncased",
 
     percent_of_data=1,  
-    num_of_batches=-1,  
+    num_of_batches=-1,  # all
     
     batch_size=4,
     epochs=1,
@@ -207,6 +207,7 @@ unfair_tos_check_correct_load_preprocessed_dataset = ModelConfig(
     preprocessed_data_dir = "./datasets_store/unfair_tos_preprocessed"
 )
 
+"""
 # Teachers
 ledgar_teacher = ModelConfig(
     task_name="ledgar",
@@ -384,3 +385,4 @@ unfair_tos_kd_student = ModelConfig(
     preprocessed_data_dir = "./datasets_store/ds_with_teacher_outputs/unfair_tos_teacher_outputs"
 )
  
+"""

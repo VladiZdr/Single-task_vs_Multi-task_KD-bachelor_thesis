@@ -62,6 +62,9 @@ def prepare_dataloaders(task_config: ModelConfig) -> tuple[DataLoader, DataLoade
 
     # Force Torch formatting
     cols = ["input_ids", "attention_mask", "token_type_ids", "labels"]
+    # Extract teacher logits when Knowledge Distillation is active
+    if task_config.loss_type == 'kldiv':
+        cols.append("logits")
     train_dataset.set_format(type="torch", columns=cols)
     val_dataset.set_format(type="torch", columns=cols)
     test_dataset.set_format(type="torch", columns=cols)
@@ -109,9 +112,9 @@ def main() -> None:
     # Run the configurations sequentially
     models_to_run = [
         #model_config.ledgar_teacher_tester,
-        #model_config.unfair_tos_teacher_tester,
-        #model_config.unfair_tos_supervised_student_tester,
-        #model_config.unfair_tos_check_correct_load_preprocessed_dataset
+        model_config.unfair_tos_teacher_tester,
+        model_config.unfair_tos_supervised_student_tester,
+        model_config.unfair_tos_check_correct_load_preprocessed_dataset
     ]
     for config in models_to_run:
         run_task_pipeline(config)
