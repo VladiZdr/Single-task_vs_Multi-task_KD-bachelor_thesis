@@ -41,11 +41,14 @@ class KDLoss(nn.Module):
         if self.problem_type == 'single_label':
             student_loss = F.cross_entropy(student_logits, labels, reduction=self.reduction)
             
-            student_soft = F.log_softmax(student_logits / self.T, dim=1)
-            teacher_soft = F.softmax(teacher_logits / self.T, dim=1)
+            # To force developers to write safe, stable code, PyTorch's core team decided that F.kl_div will not compute the logarithm for us. 
+            # It demands that we pass the student already transformed by F.log_softmax, which applies the highly stable log-sum-exp trick under the hood.
+            student_soft = F.log_softmax(student_logits / self.T, dim=-1)
+            teacher_soft = F.softmax(teacher_logits / self.T, dim=-1)
             distillation_loss = F.kl_div(student_soft, teacher_soft, reduction=kl_reduction) * (self.T ** 2)
             
         elif self.problem_type == 'multi_label':
+            labels = labels.float()  # Ensure labels are float for BCEWithLogits
             student_loss = F.binary_cross_entropy_with_logits(student_logits, labels, reduction=self.reduction)
             
             # Use standard BCE since we manually apply sigmoid to both teacher and student

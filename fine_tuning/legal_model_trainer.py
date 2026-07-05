@@ -32,6 +32,13 @@ class LegalModelTrainer:
             logger.info(
                 f"KD teacher weight set to {teacher_weight:.4f} for epoch {epoch_index + 1}/{max(self.config.epochs, 1)}"
             )
+    
+    def _remove_teacher_weight_for_evaluation(self) -> None:
+        if hasattr(self.criterion, "set_teacher_weight"):
+            self.criterion.set_teacher_weight(0.0)                                                                          #type: ignore
+        logger.info(
+                f"KD teacher weight set to 0 for evaluation to ensure student performance is measured against ground-truth labels."
+            )                                                                       
 
     # Moves the batch to the appropriate device and ensures labels are in the correct format for the loss function.
     def _prepare_batch(self, batch: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor | None]:
@@ -190,9 +197,12 @@ class LegalModelTrainer:
         # Loop over epochs, training and evaluating the model -> save the best checkpoint based on validation macro-F1 score
         for epoch in range(self.config.epochs):
             logger.info(f"Epoch {epoch + 1}/{self.config.epochs}")
+
             self._sync_teacher_weight(epoch)
-            
             train_loss = self.train_epoch(train_loader, optimizer, scheduler)
+
+            # How well the student performs on the real-world task using the actual ground-truth gold labels.
+            self._remove_teacher_weight_for_evaluation()  
             metrics = self.evaluate(val_loader)
             
             logger.info(

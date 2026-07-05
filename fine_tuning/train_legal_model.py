@@ -108,16 +108,19 @@ def run_task_pipeline(task_config: ModelConfig) -> None:
     SoftTargetExporter.export_all_splits(model, {"train": train_loader, "validation": val_loader, "test": test_loader}, task_config)
     logger.info(f"Task pipeline for {task_config.task_name}_{task_config.unique_id_for_dir} successfully executed.\n" + "="*80)
 
+
+models_to_run = [
+        #model_config.ledgar_teacher_tester,
+        model_config.unfair_tos_teacher_tester,
+        #model_config.unfair_tos_supervised_student_tester,
+        #model_config.unfair_tos_check_correct_load_preprocessed_dataset,
+        model_config.unfair_tos_kd_student_tester,
+    ]
+
 def main() -> None:
     
     # Run the configurations sequentially
-    models_to_run = [
-        #model_config.ledgar_teacher_tester,
-        model_config.unfair_tos_teacher_tester,
-        model_config.unfair_tos_supervised_student_tester,
-        model_config.unfair_tos_check_correct_load_preprocessed_dataset,
-        model_config.unfair_tos_kd_student_tester,
-    ]
+    
     for config in models_to_run:
         run_task_pipeline(config)
 

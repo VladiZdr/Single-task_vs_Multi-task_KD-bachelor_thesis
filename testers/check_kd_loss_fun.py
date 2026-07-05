@@ -8,6 +8,7 @@ if __package__ in (None, ""):
 import torch
 from configs.Loss_functions import KDLoss, LossFunctions
 from configs.model_config import ModelConfig
+import torch.nn.functional as F
 
 
 @contextmanager
@@ -121,13 +122,22 @@ def test_teacher_weight_impact():
     teacher_logits = torch.randn(2, 5)
     labels = torch.tensor([1, 3])
 
+    # 1. Get the baseline hard loss directly from PyTorch for verification
+    expected_pure_hard_loss = F.cross_entropy(student_logits, labels, reduction='mean').item()
+
+    # 2. Run with teacher active
     loss_1 = loss_fn(student_logits, teacher_logits, labels)
+    
+    # 3. Disable teacher influence
     loss_fn.set_teacher_weight(0.0)
     loss_0 = loss_fn(student_logits, teacher_logits, labels)
 
-    assert loss_1.item() != loss_0.item()
-    assert loss_1.item() >= loss_0.item()
-
+    # ASSERTIONS
+    # Check that the loss actually changed when changing weights
+    assert loss_1.item() != loss_0.item(), "Loss should change when teacher weight is toggled."
+    
+    # Check that turning off the teacher results EXACTLY in pure cross entropy loss
+    assert abs(loss_0.item() - expected_pure_hard_loss) < 1e-6, "With teacher_weight=0, loss must equal pure hard loss."
 
 def test_kdloss_with_concrete_values():
     T = 2.0
