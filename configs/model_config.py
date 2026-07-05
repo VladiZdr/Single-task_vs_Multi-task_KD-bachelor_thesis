@@ -12,7 +12,7 @@ class ModelConfig:
     num_labels: Literal[8, 100]
     problem_type: Literal["single_label", "multi_label"]
     loss_type: Literal["cross_entropy", "bce_with_logits", "kldiv"]
-    model_name_or_path: Literal["google/bert_uncased_L-4_H-256_A-4", "nlpaueb/legal-bert-base-uncased"] = "nlpaueb/legal-bert-base-uncased"
+    model_name_or_path: Literal["google/bert_uncased_L-4_H-256_A-4", "nlpaueb/legal-bert-base-uncased"]
     
     # Cut data for quicker testing
     num_of_batches: int = -1    # -1 means use all batches in the dataloader (affects only training, evaluation, and export will still process all batches)
@@ -28,6 +28,8 @@ class ModelConfig:
     T: float = 1.0
     alpha: float = 0.5
     loss_reduction : Literal["mean", "sum"] = "mean"
+
+    # Knowledge Distillation Hyperparameters
     kd_teacher_weight_schedule: Literal["constant", "linear_epoch"] = "constant"
     kd_teacher_weight_start: float = 1.0
     kd_teacher_weight_end: float = 1.0
@@ -41,7 +43,7 @@ class ModelConfig:
     output_dir: str = ""
     unique_id_for_dir: str = ""
     # raw means the dataset will be preprocessed from scratch, otherwise it will be loaded from disk
-    preprocessed_data_dir: Literal["raw", "./datasets_store/ds_with_teacher_outputs/unfair_tos_teacher_outputs_tester", "./datasets_store/unfair_tos_preprocessed", "./datasets_store/ds_with_teacher_outputs/ledgar_teacher_outputs", "./datasets_store/ds_with_teacher_outputs/unfair_tos_teacher_outputs"]  = "raw" 
+    preprocessed_data_dir: Literal["raw", "./datasets_store/ds_with_teacher_outputs/ledgar_teacher_outputs_tester", "./datasets_store/ds_with_teacher_outputs/unfair_tos_teacher_outputs_tester", "./datasets_store/unfair_tos_preprocessed", "./datasets_store/ds_with_teacher_outputs/ledgar_teacher_outputs", "./datasets_store/ds_with_teacher_outputs/unfair_tos_teacher_outputs"]  = "raw" 
     
     def __post_init__(self):
         if self.task_name == "ledgar" and self.num_labels != 100:
@@ -115,32 +117,13 @@ ledgar_teacher_tester = ModelConfig(
     loss_type="cross_entropy",
     model_name_or_path="nlpaueb/legal-bert-base-uncased",
 
-    num_of_batches=-1,
     percent_of_data=1,  
 
     batch_size = 16,
-    learning_rate = 3e-5,
-    epochs = 0,
-    weight_decay = 0.01,
-    warmup_ratio = 0.1,
-    max_grad_norm = 1.0,
-    T = 1.0,
-    alpha = 0.5,
-    loss_reduction = "mean",
-    kd_teacher_weight_schedule = "constant",
-    kd_teacher_weight_start = 1.0,
-    kd_teacher_weight_end = 1.0,
 
-    device = "auto",
-    seed = 42,
-
-    checkpoint_dir = "",
-    output_dir = "",
     unique_id_for_dir = "tester",
     preprocessed_data_dir = "raw"
 )
-    
-    # 2. Pipeline Definition for UNFAIR-ToS Terms Identification
 
 unfair_tos_teacher_tester = ModelConfig(
     task_name="unfair_tos",
@@ -150,26 +133,9 @@ unfair_tos_teacher_tester = ModelConfig(
     model_name_or_path="nlpaueb/legal-bert-base-uncased",
 
     percent_of_data=1,  
-    num_of_batches=-1,  # all
     
-    batch_size=4,
-    epochs=1,
-    learning_rate=3e-5,
-    weight_decay = 0.01,
-    warmup_ratio = 0.1,
-    max_grad_norm = 1.0,
-    T = 1.0,
-    alpha = 0.5,
-    loss_reduction = "mean",
-    kd_teacher_weight_schedule = "constant",
-    kd_teacher_weight_start = 1.0,
-    kd_teacher_weight_end = 1.0,
+    batch_size=4,    
 
-    device = "auto",
-    seed = 42,
-
-    checkpoint_dir = "",
-    output_dir = "",
     unique_id_for_dir = "tester",
     preprocessed_data_dir = "raw"
 )
@@ -182,26 +148,9 @@ unfair_tos_supervised_student_tester = ModelConfig(
     model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
 
     percent_of_data=1,  
-    num_of_batches=-1,  
     
     batch_size=4,
-    epochs=1,
-    learning_rate=3e-5,
-    weight_decay = 0.01,
-    warmup_ratio = 0.1,
-    max_grad_norm = 1.0,
-    T = 1.0,
-    alpha = 0.5,
-    loss_reduction = "mean",
-    kd_teacher_weight_schedule = "constant",
-    kd_teacher_weight_start = 1.0,
-    kd_teacher_weight_end = 1.0,
-
-    device = "auto",
-    seed = 42,
-
-    checkpoint_dir = "",
-    output_dir = "",
+    
     unique_id_for_dir = "supervised_student_tester",
     preprocessed_data_dir = "raw"
 )
@@ -214,26 +163,9 @@ unfair_tos_check_correct_load_preprocessed_dataset = ModelConfig(
     model_name_or_path="nlpaueb/legal-bert-base-uncased",
 
     percent_of_data=1,  
-    num_of_batches=-1,  
     
     batch_size=4,
-    epochs=1,
-    learning_rate=3e-5,
-    weight_decay = 0.01,
-    warmup_ratio = 0.1,
-    max_grad_norm = 1.0,
-    T = 1.0,
-    alpha = 0.5,
-    loss_reduction = "mean",
-    kd_teacher_weight_schedule = "constant",
-    kd_teacher_weight_start = 1.0,
-    kd_teacher_weight_end = 1.0,
-
-    device = "auto",
-    seed = 42,
-
-    checkpoint_dir = "",
-    output_dir = "",
+    
     unique_id_for_dir = "check_correct_load",
     preprocessed_data_dir = "./datasets_store/unfair_tos_preprocessed"
 )
@@ -246,32 +178,33 @@ unfair_tos_kd_student_tester = ModelConfig(
     model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
 
     percent_of_data=1,  
-    num_of_batches=-1,  
     
     batch_size=4,
-    epochs=1,
-    learning_rate=3e-5,
-    weight_decay = 0.01,
-    warmup_ratio = 0.1,
-    max_grad_norm = 1.0,
-    T = 1.0,
-    alpha = 0.5,
-    loss_reduction = "mean",
+
     kd_teacher_weight_schedule = "linear_epoch",
-    kd_teacher_weight_start = 1.0,
-    kd_teacher_weight_end = 0.0,
 
-    device = "auto",
-    seed = 42,
-
-    checkpoint_dir = "",
-    output_dir = "",
     unique_id_for_dir = "kd_student_tester",
     preprocessed_data_dir = "./datasets_store/ds_with_teacher_outputs/unfair_tos_teacher_outputs_tester"
 )
 
+ledgar_kd_student_tester = ModelConfig(
+    task_name="ledgar",
+    num_labels=100,
+    problem_type="single_label",
+    loss_type="cross_entropy",
+    model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
+
+    percent_of_data=1,  
+
+    batch_size = 16,
+
+    kd_teacher_weight_schedule = "linear_epoch",
+
+    unique_id_for_dir = "kd_student_tester",
+    preprocessed_data_dir = "./datasets_store/ds_with_teacher_outputs/ledgar_teacher_outputs_tester"
+)
+
 """
-# TODO: add kd_teacher_weight_schedule
 # Teachers
 ledgar_teacher = ModelConfig(
     task_name="ledgar",
@@ -280,25 +213,9 @@ ledgar_teacher = ModelConfig(
     loss_type="cross_entropy",
     model_name_or_path="nlpaueb/legal-bert-base-uncased",
 
-    num_of_batches=-1,
-    percent_of_data=100,  
-
-    batch_size = 8,
-    learning_rate = 3e-5,
+    batch_size = 16,
     epochs = 5,
-    weight_decay = 0.01,
-    warmup_ratio = 0.1,
-    max_grad_norm = 1.0,
-    T = 1.0,
-    alpha = 0.5,
-    loss_reduction = "mean",
-    kd_teacher_weight_schedule = "constant",
-    kd_teacher_weight_start = 1.0,
-    kd_teacher_weight_end = 1.0,
-
-    device = "auto",
-    seed = 42,
-
+    
     checkpoint_dir = "./datasets_store/checkpoints/ledgar_teacher",
     output_dir = "./datasets_store/ds_with_teacher_outputs/ledgar_teacher_outputs",
     unique_id_for_dir = "Teacher",
@@ -312,24 +229,7 @@ unfair_tos_teacher = ModelConfig(
     loss_type="bce_with_logits",
     model_name_or_path="nlpaueb/legal-bert-base-uncased",
 
-    num_of_batches=-1,
-    percent_of_data=100,  
-
-    batch_size = 8,
-    learning_rate = 3e-5,
     epochs = 5,
-    weight_decay = 0.01,
-    warmup_ratio = 0.1,
-    max_grad_norm = 1.0,
-    T = 1.0,
-    alpha = 0.5,
-    loss_reduction = "mean",
-    kd_teacher_weight_schedule = "constant",
-    kd_teacher_weight_start = 1.0,
-    kd_teacher_weight_end = 1.0,
-
-    device = "auto",
-    seed = 42,
 
     checkpoint_dir = "./datasets_store/checkpoints/unfair_tos_teacher",
     output_dir = "./datasets_store/ds_with_teacher_outputs/unfair_tos_teacher_outputs",
@@ -345,24 +245,8 @@ ledgar_supervised_student_baseline = ModelConfig(
     loss_type="cross_entropy",
     model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
 
-    num_of_batches=-1,
-    percent_of_data=100,  
-
-    batch_size = 8,
-    learning_rate = 3e-5,
+    batch_size = 16,
     epochs = 5,
-    weight_decay = 0.01,
-    warmup_ratio = 0.1,
-    max_grad_norm = 1.0,
-    T = 1.0,
-    alpha = 0.5,
-    loss_reduction = "mean",
-    kd_teacher_weight_schedule = "constant",
-    kd_teacher_weight_start = 1.0,
-    kd_teacher_weight_end = 1.0,
-
-    device = "auto",
-    seed = 42,
 
     checkpoint_dir = "./datasets_store/checkpoints/ledgar_supervised_student",
     output_dir = "./datasets_store/ds_with_teacher_outputs/ledgar_supervised_student_outputs",
@@ -377,25 +261,7 @@ unfair_tos_supervised_student_baseline = ModelConfig(
     loss_type="bce_with_logits",
     model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
 
-    num_of_batches=-1,
-    percent_of_data=100,  
-
-    batch_size = 8,
-    learning_rate = 3e-5,
     epochs = 5,
-    weight_decay = 0.01,
-    warmup_ratio = 0.1,
-    max_grad_norm = 1.0,
-    T = 1.0,
-    alpha = 0.5,
-    loss_reduction = "mean",
-    kd_teacher_weight_schedule = "constant",
-    kd_teacher_weight_start = 1.0,
-    kd_teacher_weight_end = 1.0,
-
-    device = "auto",
-    seed = 42,
-
 
     checkpoint_dir = "./datasets_store/checkpoints/unfair_tos_supervised_student",
     output_dir = "./datasets_store/ds_with_teacher_outputs/unfair_tos_supervised_student_outputs",
@@ -411,25 +277,11 @@ ledgar_kd_student = ModelConfig(
     loss_type="kldiv",
     model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
 
-    num_of_batches=-1,
-    percent_of_data=100,  
-
-    batch_size = 8,
-    learning_rate = 3e-5,
+    batch_size = 16,
     epochs = 5,
-    weight_decay = 0.01,
-    warmup_ratio = 0.1,
-    max_grad_norm = 1.0,
-    T = 1.0,
-    alpha = 0.5,
-    loss_reduction = "mean",
+
     kd_teacher_weight_schedule = "linear_epoch",
-    kd_teacher_weight_start = 1.0,
-    kd_teacher_weight_end = 0.0,
-
-    device = "auto",
-    seed = 42,
-
+    
     checkpoint_dir = "./datasets_store/checkpoints/ledgar_kd_student",
     output_dir = "./datasets_store/ds_with_teacher_outputs/ledgar_kd_student_outputs",
     unique_id_for_dir = "Single_task_KD_Student",
@@ -443,21 +295,9 @@ unfair_tos_kd_student = ModelConfig(
     loss_type="kldiv",
     model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
 
-    num_of_batches=-1,
-    percent_of_data=100,  
-
-    batch_size = 8,
-    learning_rate = 3e-5,
     epochs = 5,
-    weight_decay = 0.01,
-    warmup_ratio = 0.1,
-    max_grad_norm = 1.0,
-    T = 1.0,
-    alpha = 0.5,
-    loss_reduction = "mean",
+
     kd_teacher_weight_schedule = "linear_epoch",
-    kd_teacher_weight_start = 1.0,
-    kd_teacher_weight_end = 0.0,
 
     device = "auto",
     seed = 42,
@@ -467,5 +307,4 @@ unfair_tos_kd_student = ModelConfig(
     unique_id_for_dir = "Single_task_KD_Student",
     preprocessed_data_dir = "./datasets_store/ds_with_teacher_outputs/unfair_tos_teacher_outputs"
 )
- 
 """
