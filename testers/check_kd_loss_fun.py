@@ -76,6 +76,8 @@ def test_teacher_weight_schedule_helper():
     assert config.get_kd_teacher_weight(0, 4) == 1.0
     assert torch.isclose(torch.tensor(config.get_kd_teacher_weight(2, 4)), torch.tensor(1.0 / 3.0))
     assert config.get_kd_teacher_weight(3, 4) == 0.0
+    # ADDED BOUNDARY TEST: Check if it cleanly handles out-of-bounds steps
+    assert config.get_kd_teacher_weight(5, 4) == 0.0
 
 
 def test_single_label_forward_and_gradients():
@@ -84,17 +86,22 @@ def test_single_label_forward_and_gradients():
     loss_fn = KDLoss(problem_type="single_label", T=2.0, alpha=0.5)
 
     student_logits = torch.randn(batch_size, num_classes, requires_grad=True)
-    teacher_logits = torch.randn(batch_size, num_classes)
+    # ADDED: Check that teacher logits never collect gradients
+    teacher_logits = torch.randn(batch_size, num_classes, requires_grad=True)
     labels = torch.randint(0, num_classes, (batch_size,))
 
     loss = loss_fn(student_logits, teacher_logits, labels)
 
     assert loss.dim() == 0
     assert torch.isfinite(loss)
+    
     loss.backward()
+
     assert student_logits.grad is not None
     assert student_logits.grad.shape == student_logits.shape
     assert not torch.all(student_logits.grad == 0)
+    # Verify teacher is untouched by the backward pass
+    assert teacher_logits.grad is None or torch.all(teacher_logits.grad == 0)
 
 
 def test_multi_label_forward_and_gradients():
@@ -139,6 +146,22 @@ def test_teacher_weight_impact():
     # Check that turning off the teacher results EXACTLY in pure cross entropy loss
     assert abs(loss_0.item() - expected_pure_hard_loss) < 1e-6, "With teacher_weight=0, loss must equal pure hard loss."
 
+def test_teacher_weight_impact_multi_label():
+    loss_fn = KDLoss(problem_type="multi_label", alpha=0.5)
+
+    student_logits = torch.randn(2, 5)
+    teacher_logits = torch.randn(2, 5)
+    labels = torch.randint(0, 2, (2, 5)).float()
+
+    expected_pure_hard_loss = F.binary_cross_entropy_with_logits(student_logits, labels, reduction='mean').item()
+
+    loss_1 = loss_fn(student_logits, teacher_logits, labels)
+    loss_fn.set_teacher_weight(0.0)
+    loss_0 = loss_fn(student_logits, teacher_logits, labels)
+
+    assert loss_1.item() != loss_0.item(), "Multi-label loss should change when teacher weight changes."
+    assert abs(loss_0.item() - expected_pure_hard_loss) < 1e-6, "With weight=0, multi-label loss must equal pure BCE loss."
+
 def test_kdloss_with_concrete_values():
     T = 2.0
     alpha = 0.5
@@ -179,6 +202,7 @@ def main():
         test_single_label_forward_and_gradients,
         test_multi_label_forward_and_gradients,
         test_teacher_weight_impact,
+        test_teacher_weight_impact_multi_label,
         test_kdloss_with_concrete_values,
     ]
 

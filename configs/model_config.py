@@ -103,6 +103,7 @@ class ModelConfig:
         if self.kd_teacher_weight_schedule == "constant" or total_epochs <= 1:
             return self.kd_teacher_weight_start
 
+        # Works with total epochs >= 1
         progress = max(0.0, min(epoch_index / (total_epochs - 1), 1.0))
         return self.kd_teacher_weight_start + progress * (self.kd_teacher_weight_end - self.kd_teacher_weight_start)
 
@@ -248,7 +249,7 @@ unfair_tos_kd_student_tester = ModelConfig(
     num_of_batches=-1,  
     
     batch_size=4,
-    epochs=4,
+    epochs=1,
     learning_rate=3e-5,
     weight_decay = 0.01,
     warmup_ratio = 0.1,

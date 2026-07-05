@@ -44,7 +44,7 @@ class KDLoss(nn.Module):
             # To force developers to write safe, stable code, PyTorch's core team decided that F.kl_div will not compute the logarithm for us. 
             # It demands that we pass the student already transformed by F.log_softmax, which applies the highly stable log-sum-exp trick under the hood.
             student_soft = F.log_softmax(student_logits / self.T, dim=-1)
-            teacher_soft = F.softmax(teacher_logits / self.T, dim=-1)
+            teacher_soft = F.softmax(teacher_logits.detach() / self.T, dim=-1)
             distillation_loss = F.kl_div(student_soft, teacher_soft, reduction=kl_reduction) * (self.T ** 2)
             
         elif self.problem_type == 'multi_label':
@@ -53,7 +53,7 @@ class KDLoss(nn.Module):
             
             # Use standard BCE since we manually apply sigmoid to both teacher and student
             student_probs = torch.sigmoid(student_logits / self.T)
-            teacher_probs = torch.sigmoid(teacher_logits / self.T)
+            teacher_probs = torch.sigmoid(teacher_logits.detach() / self.T)
             distillation_loss = F.binary_cross_entropy(student_probs, teacher_probs, reduction=self.reduction) * (self.T ** 2)
             
         dynamic_alpha = self.alpha * self.teacher_weight
