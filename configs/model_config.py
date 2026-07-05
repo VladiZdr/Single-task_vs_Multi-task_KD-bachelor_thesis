@@ -292,6 +292,9 @@ ledgar_teacher = ModelConfig(
     T = 1.0,
     alpha = 0.5,
     loss_reduction = "mean",
+    kd_teacher_weight_schedule = "constant",
+    kd_teacher_weight_start = 1.0,
+    kd_teacher_weight_end = 1.0,
 
     device = "auto",
     seed = 42,
@@ -321,6 +324,9 @@ unfair_tos_teacher = ModelConfig(
     T = 1.0,
     alpha = 0.5,
     loss_reduction = "mean",
+    kd_teacher_weight_schedule = "constant",
+    kd_teacher_weight_start = 1.0,
+    kd_teacher_weight_end = 1.0,
 
     device = "auto",
     seed = 42,
@@ -351,6 +357,9 @@ ledgar_supervised_student_baseline = ModelConfig(
     T = 1.0,
     alpha = 0.5,
     loss_reduction = "mean",
+    kd_teacher_weight_schedule = "constant",
+    kd_teacher_weight_start = 1.0,
+    kd_teacher_weight_end = 1.0,
 
     device = "auto",
     seed = 42,
@@ -380,9 +389,13 @@ unfair_tos_supervised_student_baseline = ModelConfig(
     T = 1.0,
     alpha = 0.5,
     loss_reduction = "mean",
+    kd_teacher_weight_schedule = "constant",
+    kd_teacher_weight_start = 1.0,
+    kd_teacher_weight_end = 1.0,
 
     device = "auto",
     seed = 42,
+
 
     checkpoint_dir = "./datasets_store/checkpoints/unfair_tos_supervised_student",
     output_dir = "./datasets_store/ds_with_teacher_outputs/unfair_tos_supervised_student_outputs",
@@ -410,6 +423,9 @@ ledgar_kd_student = ModelConfig(
     T = 1.0,
     alpha = 0.5,
     loss_reduction = "mean",
+    kd_teacher_weight_schedule = "linear_epoch",
+    kd_teacher_weight_start = 1.0,
+    kd_teacher_weight_end = 0.0,
 
     device = "auto",
     seed = 42,
@@ -439,6 +455,9 @@ unfair_tos_kd_student = ModelConfig(
     T = 1.0,
     alpha = 0.5,
     loss_reduction = "mean",
+    kd_teacher_weight_schedule = "linear_epoch",
+    kd_teacher_weight_start = 1.0,
+    kd_teacher_weight_end = 0.0,
 
     device = "auto",
     seed = 42,
