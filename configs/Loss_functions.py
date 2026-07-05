@@ -53,4 +53,5 @@ class KDLoss(nn.Module):
             teacher_probs = torch.sigmoid(teacher_logits / self.T)
             distillation_loss = F.binary_cross_entropy(student_probs, teacher_probs, reduction=self.reduction) * (self.T ** 2)
             
-        return (1 - self.alpha) * student_loss + (self.alpha * self.teacher_weight * distillation_loss)
+        dynamic_alpha = self.alpha * self.teacher_weight
+        return (1.0 - dynamic_alpha) * student_loss + (dynamic_alpha * distillation_loss)

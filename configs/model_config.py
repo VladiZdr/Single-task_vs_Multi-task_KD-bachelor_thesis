@@ -248,7 +248,7 @@ unfair_tos_kd_student_tester = ModelConfig(
     num_of_batches=-1,  
     
     batch_size=4,
-    epochs=2,
+    epochs=4,
     learning_rate=3e-5,
     weight_decay = 0.01,
     warmup_ratio = 0.1,
