@@ -76,11 +76,6 @@ class LegalModelTrainer:
         processed_batches = 0
 
         for batch in tqdm(dataloader, desc="Training Iteration"):
-            # If num_of_batches is set to a positive integer, we limit the number of batches processed per epoch.
-            if self.config.num_of_batches > 0 and current_batch_count >= self.config.num_of_batches:
-                break
-            elif self.config.num_of_batches > 0:
-                current_batch_count += 1
 
             # Clears old gradients before computing new ones.
             optimizer.zero_grad(set_to_none=True)
@@ -183,8 +178,6 @@ class LegalModelTrainer:
         
         # Calculate total training steps and warmup steps for the learning rate scheduler
         effective_train_batches = len(train_loader)
-        if self.config.num_of_batches > 0:
-            effective_train_batches = min(effective_train_batches, self.config.num_of_batches)
 
         total_steps = effective_train_batches * self.config.epochs
         warmup_steps = int(total_steps * self.config.warmup_ratio)

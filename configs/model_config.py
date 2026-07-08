@@ -15,7 +15,6 @@ class ModelConfig:
     model_name_or_path: Literal["google/bert_uncased_L-4_H-256_A-4", "nlpaueb/legal-bert-base-uncased"]
     
     # Cut data for quicker testing
-    num_of_batches: int = -1    # -1 means use all batches in the dataloader (affects only training, evaluation, and export will still process all batches)
     percent_of_data: int = 100  # Use only "percent_of_data" % of the dataset for quicker testing
 
     # Optimization Hyperparameters

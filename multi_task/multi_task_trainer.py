@@ -25,10 +25,7 @@ class MultiTaskTrainer:
         self.model = model
         self.ledgar_config = ledgar_config
         self.unfair_tos_config = unfair_tos_config
-        self.task_configs: dict[str, ModelConfig] = {
-            "ledgar": ledgar_config,
-            "unfair_tos": unfair_tos_config,
-        }
+        self.task_configs: dict[str, ModelConfig] = {"ledgar": ledgar_config, "unfair_tos": unfair_tos_config,}
 
         self.device = torch.device(ledgar_config.device)
         self.model.to(self.device)
@@ -39,7 +36,8 @@ class MultiTaskTrainer:
             for task_name, task_config in self.task_configs.items()
         }
 
-        # Explicitly sets the order in which data splits are trained sequentially and seeds the starting teacher weight parameter to 0 to begin the first epoch.
+        # Explicitly sets the order in which data splits are trained sequentially 
+        # and seeds the starting teacher weight parameter to 0 to begin the first epoch.
         self.train_task_order = ("ledgar", "unfair_tos")
         self._sync_teacher_weight(epoch_index=0)
 
@@ -89,9 +87,10 @@ class MultiTaskTrainer:
         task_name = self._task_name_from_batch(batch)
         task_config = self.task_configs[task_name]
 
-        # Extracts data labels and pushes them onto the device. If the configuration states a task is multi_label (classification containing multiple active classes), it formats parameters into a float(). 
+        # Extracts data labels and pushes them onto the device. If the configuration states a task is multi_label 
+        # (classification containing multiple active classes), it formats parameters into a float(). 
         # Otherwise, it converts them into a long() integer for classic single-choice multi-class operations.
-        labels = batch["labels"].to(self.device)
+        labels = batch["labels"].to(self.device)        #type: ignore
         if task_config.problem_type == "multi_label":
             labels = labels.float()
         else:
@@ -99,15 +98,15 @@ class MultiTaskTrainer:
 
         token_type_ids = batch.get("token_type_ids")
         prepared: Dict[str, torch.Tensor | str | None] = {
-            "input_ids": batch["input_ids"].to(self.device),
-            "attention_mask": batch["attention_mask"].to(self.device),
-            "token_type_ids": token_type_ids.to(self.device) if token_type_ids is not None else None,
+            "input_ids": batch["input_ids"].to(self.device),                                                 #type: ignore
+            "attention_mask": batch["attention_mask"].to(self.device),                                       #type: ignore
+            "token_type_ids": token_type_ids.to(self.device) if token_type_ids is not None else None,        #type: ignore
             "labels": labels,
             "task": task_name,
         }
 
         if "logits" in batch:
-            prepared["logits"] = batch["logits"].to(self.device)
+            prepared["logits"] = batch["logits"].to(self.device)                                             #type: ignore
 
         return prepared
 
@@ -143,12 +142,8 @@ class MultiTaskTrainer:
             if dataloader is None or len(dataloader) == 0:
                 continue
 
-            task_batches = 0
-            # Wraps data loading elements within a tqdm progress visualization widget. It provides an option to halt processing early once a num_of_batches threshold is passed
+            # Wraps data loading elements within a tqdm progress visualization widget
             for batch in tqdm(dataloader, desc=f"Training {task_name}"):
-                if self.ledgar_config.num_of_batches > 0 and task_batches >= self.ledgar_config.num_of_batches:
-                    break
-                task_batches += 1
 
                 # Wipes clean the historical backpropagation gradient parameters remaining from prior forward loops.
                 optimizer.zero_grad(set_to_none=True)
@@ -161,12 +156,7 @@ class MultiTaskTrainer:
                 assert isinstance(task, str)
 
                 # Triggers the forward loop step across the shared Transformer network into specific active classification task target layer
-                logits = self.model(
-                    prepared["input_ids"],
-                    prepared["attention_mask"],
-                    prepared["token_type_ids"],
-                    task=task,
-                )
+                logits = self.model(prepared["input_ids"], prepared["attention_mask"], prepared["token_type_ids"], task=task)
 
                 assert logits.shape[0] == labels.shape[0], "Batch size mismatch"
                 assert logits.shape[1] == self.task_configs[task].num_labels, "Logit dimension mismatch"
@@ -217,12 +207,7 @@ class MultiTaskTrainer:
                 assert isinstance(labels, torch.Tensor)
                 assert isinstance(task, str)
 
-                logits = self.model(
-                    prepared["input_ids"],
-                    prepared["attention_mask"],
-                    prepared["token_type_ids"],
-                    task=task,
-                )
+                logits = self.model(prepared["input_ids"], prepared["attention_mask"], prepared["token_type_ids"], task=task)
 
                 loss = self._compute_loss(task, logits, prepared)
                 task_loss += float(loss.item())
@@ -289,8 +274,6 @@ class MultiTaskTrainer:
         effective_train_batches = 0
         for loader in train_loaders.values():
             loader_batches = len(loader)
-            if self.ledgar_config.num_of_batches > 0:
-                loader_batches = min(loader_batches, self.ledgar_config.num_of_batches)
             effective_train_batches += loader_batches
 
         # Sets up a linear learning rate scheduler. It gradually ramps up the learning rate during the initial warm-up period, 
@@ -304,7 +287,7 @@ class MultiTaskTrainer:
         )
 
         best_macro_f1 = -inf
-        best_checkpoint_path = os.path.join(self.ledgar_config.checkpoint_dir, "best_multi_task_model.pt")
+        best_checkpoint_path = os.path.join("./datasets_store/checkpoints/multi_task_model", "best_multi_task_model.pt")
 
         # Every epoch updates the distillation teacher weight parameter, trains across both tasks sequentially, 
         # turns off distillation targets, and runs an evaluation loop over validation data.
