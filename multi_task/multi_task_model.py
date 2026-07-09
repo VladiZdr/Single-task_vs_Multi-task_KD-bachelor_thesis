@@ -10,7 +10,7 @@ class MultiTaskModel(nn.Module):
 
     TASK_NAMES = ("ledgar", "unfair_tos")
 
-    def __init__(self, ledgar_config: ModelConfig, unfair_tos_config: ModelConfig):
+    def __init__(self, ledgar_config: ModelConfig, unfair_tos_config: ModelConfig, unique_id_for_dir: str = "multi_task_model") -> None:
         super().__init__()
 
         # A safety check. Because both tasks are going to share the exact same language model backbone, their underlying configuration strings must match exactly
@@ -21,6 +21,7 @@ class MultiTaskModel(nn.Module):
 
         self.ledgar_config = ledgar_config
         self.unfair_tos_config = unfair_tos_config
+        self.unique_id_for_dir = unique_id_for_dir
 
         # This encoder will be shared globally across both tasks.
         self.encoder = AutoModel.from_pretrained(ledgar_config.model_name_or_path)
@@ -34,12 +35,10 @@ class MultiTaskModel(nn.Module):
 
         # Sets up two unique linear classification heads. Both accept the hidden_size vector from the encoder, 
         # but map to different output numbers depending on how many classes each dataset has
-        self.classifier_heads = nn.ModuleDict(
-            {
+        self.classifier_heads = nn.ModuleDict({
                 "ledgar": nn.Linear(hidden_size, ledgar_config.num_labels),
                 "unfair_tos": nn.Linear(hidden_size, unfair_tos_config.num_labels),
-            }
-        )
+        })
 
         # Loops through both linear classification layers to manually set their starting weights.
         # Fills the weight matrices using a Xavier/Glorot distribution, keeping the variance of gradients consistent across layers

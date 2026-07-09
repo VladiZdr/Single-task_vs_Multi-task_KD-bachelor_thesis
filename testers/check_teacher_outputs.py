@@ -8,7 +8,7 @@ from fine_tuning.export_teacher_outputs import SoftTargetExporter
 from fine_tuning.train_legal_model import models_to_run
 
 
-def main() -> None:
+def check_all_exports() -> None:
     for model in models_to_run:
         print(f"\n[{model.task_name}]")
         summary = SoftTargetExporter.verify_exports(directory_path=model.output_dir)
@@ -21,4 +21,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    check_all_exports()

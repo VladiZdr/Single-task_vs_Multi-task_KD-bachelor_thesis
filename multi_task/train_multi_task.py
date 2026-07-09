@@ -1,19 +1,17 @@
 from __future__ import annotations
-
 import logging
 import random
 from typing import Dict
-
 import numpy as np
 import torch
 from datasets import Dataset as HFDataset
 from datasets import DatasetDict
 from torch.utils.data import DataLoader
-
 from configs.model_config import ModelConfig
 from datasets_manipulation.prepare_datasets import prep_dataset_from_raw, smart_load_dataset
 from multi_task.multi_task_model import MultiTaskModel
 from multi_task.multi_task_trainer import MultiTaskTrainer
+import configs.model_templates as model_config
 
 logging.basicConfig(
     level=logging.INFO,
@@ -21,7 +19,6 @@ logging.basicConfig(
     handlers=[logging.StreamHandler()],
 )
 logger = logging.getLogger("MultiTaskFineTunePipeline")
-
 
 def set_all_seeds(seed: int = 42) -> None:
     random.seed(seed)
@@ -38,7 +35,6 @@ def seed_worker(worker_id: int) -> None:
     worker_seed = torch.initial_seed() % 2**32
     np.random.seed(worker_seed)
     random.seed(worker_seed)
-
 
 def _load_split_dataloaders(task_config: ModelConfig) -> Dict[str, DataLoader]:
     if task_config.preprocessed_data_dir == "raw":
@@ -111,7 +107,6 @@ def prepare_multitask_dataloaders(ledgar_config: ModelConfig, unfair_tos_config:
 
     return train_loaders, val_loaders, test_loaders
 
-
 def run_multitask_pipeline(ledgar_config: ModelConfig, unfair_tos_config: ModelConfig) -> None:
     logger.info(
         "Initializing multi-task pipeline with LEDGAR as the leading task, %s epochs, and LEDGAR batch size %s.",
@@ -151,45 +146,16 @@ def run_multitask_pipeline(ledgar_config: ModelConfig, unfair_tos_config: ModelC
     logger.info("Multi-task pipeline successfully executed.\n" + "=" * 80)
 
 
-multi_task_ledgar_kd_student_tester = ModelConfig(
-    task_name="ledgar",
-    num_labels=100,
-    problem_type="single_label",
-    loss_type="kldiv",
-    model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
-    percent_of_data=1,
-    batch_size=16,
-    kd_teacher_weight_schedule="linear_epoch",
-    unique_id_for_dir="MT_kd_student_tester",
-    checkpoint_dir="./datasets_store/checkpoints/multi_task_kd_student_tester",
-    output_dir="./datasets_store/ds_with_teacher_outputs/multi_task_kd_student_tester",
-    preprocessed_data_dir="./datasets_store/ds_with_teacher_outputs/ledgar_teacher_outputs_tester",
-)
-
-multi_task_unfair_tos_kd_student_tester = ModelConfig(
-    task_name="unfair_tos",
-    num_labels=8,
-    problem_type="multi_label",
-    loss_type="kldiv",
-    model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
-    percent_of_data=1,
-    batch_size=4,
-    kd_teacher_weight_schedule="linear_epoch",
-    unique_id_for_dir="MT_kd_student_tester",
-    checkpoint_dir="./datasets_store/checkpoints/multi_task_kd_student_tester",
-    output_dir="./datasets_store/ds_with_teacher_outputs/multi_task_kd_student_tester",
-    preprocessed_data_dir="./datasets_store/ds_with_teacher_outputs/unfair_tos_teacher_outputs_tester",
-)
-
 # Bundles paired task configuration objects into a structured execution queue array list.
 models_to_run = [
-    (multi_task_ledgar_kd_student_tester, multi_task_unfair_tos_kd_student_tester),
+    model_config.multi_task_model_tester1,
+    model_config.multi_task_model_tester2,
 ]
 
-def main() -> None:
-    for ledgar_config, unfair_tos_config in models_to_run:
-        run_multitask_pipeline(ledgar_config, unfair_tos_config)
+def run_multitask_pipelines() -> None:
+    for model in models_to_run:
+        run_multitask_pipeline(model.ledgar_config, model.unfair_tos_config)
 
 
 if __name__ == "__main__":
-    main()
+    run_multitask_pipelines()

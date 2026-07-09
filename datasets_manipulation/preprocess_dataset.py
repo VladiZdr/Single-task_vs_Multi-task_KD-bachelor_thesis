@@ -1,5 +1,6 @@
 import gc
 import re
+import time
 from pathlib import Path
 from shutil import copytree, rmtree
 from typing import cast
@@ -70,8 +71,36 @@ def _update_dataset_dir(dataset_dir, process_dataset):
     # The loaded dataset may still keep file handles open
     gc.collect()
 
-    rmtree(dataset_dir)
-    temp_dir.rename(dataset_dir)
+    # --- WINDOWS FILE LOCK WORKAROUND START ---
+    # 1. Give Windows a moment to release memory maps
+    time.sleep(0.5) 
+
+    # 2. Robustly remove old directory
+    for i in range(5):
+        try:
+            if dataset_dir.exists():
+                rmtree(dataset_dir)
+            break
+        except PermissionError:
+            time.sleep(0.5)  # Back off and wait for OS lock release
+    else:
+        # Final attempt that will raise the error if it truly fails completely
+        rmtree(dataset_dir)
+
+    # 3. Give Windows a moment to clear the 'DELETE_PENDING' status
+    time.sleep(0.5) 
+
+    # 4. Robustly rename temporary directory
+    for i in range(5):
+        try:
+            temp_dir.rename(dataset_dir)
+            break
+        except PermissionError:
+            time.sleep(0.5)  # Wait for OS to clear target path tracking
+    else:
+        # Final attempt if everything else failed
+        temp_dir.rename(dataset_dir)
+    # --- WINDOWS FILE LOCK WORKAROUND END ---
 
     return None
 

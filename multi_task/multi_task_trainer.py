@@ -27,6 +27,9 @@ class MultiTaskTrainer:
         self.unfair_tos_config = unfair_tos_config
         self.task_configs: dict[str, ModelConfig] = {"ledgar": ledgar_config, "unfair_tos": unfair_tos_config,}
 
+        self.checkpoint_path = f"./datasets_store/checkpoints/{self.model.unique_id_for_dir}"
+        os.makedirs(self.checkpoint_path, exist_ok=True)
+
         self.device = torch.device(ledgar_config.device)
         self.model.to(self.device)
 
@@ -287,7 +290,7 @@ class MultiTaskTrainer:
         )
 
         best_macro_f1 = -inf
-        best_checkpoint_path = os.path.join("./datasets_store/checkpoints/multi_task_model", "best_multi_task_model.pt")
+        best_checkpoint_path = os.path.join(self.checkpoint_path, "best_multi_task_model.pt")
 
         # Every epoch updates the distillation teacher weight parameter, trains across both tasks sequentially, 
         # turns off distillation targets, and runs an evaluation loop over validation data.

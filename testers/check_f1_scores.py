@@ -1,12 +1,11 @@
 import os
 import sys
-from typing import Dict, Iterable
+from typing import Dict
 
 if __package__ in (None, ""):
     sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 import torch
-import configs.model_config as model_config
 from configs.model_config import ModelConfig
 from fine_tuning.legal_model import LegalModel
 from fine_tuning.legal_model_trainer import LegalModelTrainer
@@ -45,12 +44,11 @@ def evaluate_model(param_config: ModelConfig) -> Dict[str, float]:
     print(f"Evaluation metrics for {current_config.task_name}_{current_config.unique_id_for_dir}: {metrics}")
     return metrics
 
-def main() -> None:
+def check_all_f1_scores() -> None:
     for config in models_to_run:
         evaluate_model(param_config=config)
 
     print("\nAll F1 checks passed.")
 
-
 if __name__ == "__main__":
-    main()
+    check_all_f1_scores()
