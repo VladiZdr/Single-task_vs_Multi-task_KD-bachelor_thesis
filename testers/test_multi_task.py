@@ -250,7 +250,7 @@ def test_multitask_model_init_uses_default_dropout_when_encoder_config_omits_it(
     fake_encoder = DummyEncoder(hidden_size=5, dropout_prob=None)
 
     with patch("multi_task.multi_task_model.AutoModel.from_pretrained", return_value=fake_encoder):
-        model = MultiTaskModel(ledgar_config, unfair_config)
+        model = MultiTaskModel(ledgar_config, unfair_config, unique_id_for_dir="mt_default_drop")
 
     assert model.dropout.p == 0.1
 
@@ -272,7 +272,7 @@ def test_multitask_model_init_requires_same_encoder_checkpoint():
     )
 
     with expect_raises(ValueError, "same encoder checkpoint"):
-        MultiTaskModel(ledgar_config, unfair_config)
+        MultiTaskModel(ledgar_config, unfair_config, unique_id_for_dir="mt_mismatch")
 
 
 def test_multitask_model_forward_uses_selected_head_and_optional_token_type_ids():
@@ -291,7 +291,7 @@ def test_multitask_model_forward_uses_selected_head_and_optional_token_type_ids(
     fake_encoder = DummyEncoder(hidden_size=4, dropout_prob=0.0)
 
     with patch("multi_task.multi_task_model.AutoModel.from_pretrained", return_value=fake_encoder):
-        model = MultiTaskModel(ledgar_config, unfair_config)
+        model = MultiTaskModel(ledgar_config, unfair_config, unique_id_for_dir="mt_forward")
 
     input_ids = torch.tensor([[1, 2, 3], [4, 5, 6]])
     attention_mask = torch.ones(2, 3, dtype=torch.long)
@@ -323,7 +323,7 @@ def test_multitask_model_forward_rejects_missing_task():
     fake_encoder = DummyEncoder(hidden_size=4)
 
     with patch("multi_task.multi_task_model.AutoModel.from_pretrained", return_value=fake_encoder):
-        model = MultiTaskModel(ledgar_config, unfair_config)
+        model = MultiTaskModel(ledgar_config, unfair_config, unique_id_for_dir="mt_missing_task")
 
     with expect_raises(ValueError, "requires a task name"):
         model(torch.tensor([[1, 2]]), torch.ones(1, 2, dtype=torch.long), task=None)
@@ -345,7 +345,7 @@ def test_multitask_model_forward_rejects_unknown_task():
     fake_encoder = DummyEncoder(hidden_size=4)
 
     with patch("multi_task.multi_task_model.AutoModel.from_pretrained", return_value=fake_encoder):
-        model = MultiTaskModel(ledgar_config, unfair_config)
+        model = MultiTaskModel(ledgar_config, unfair_config, unique_id_for_dir="mt_bad_task")
 
     with expect_raises(ValueError, "Unsupported task 'other'"):
         model(torch.tensor([[1, 2]]), torch.ones(1, 2, dtype=torch.long), task="other")
