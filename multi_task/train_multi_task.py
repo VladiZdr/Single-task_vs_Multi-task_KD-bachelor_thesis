@@ -107,9 +107,14 @@ def prepare_multitask_dataloaders(ledgar_config: ModelConfig, unfair_tos_config:
 
     return train_loaders, val_loaders, test_loaders
 
-def run_multitask_pipeline(ledgar_config: ModelConfig, unfair_tos_config: ModelConfig) -> None:
+def run_multitask_pipeline(multitask_model: MultiTaskModel) -> None:
+    unique_id_for_dir = multitask_model.unique_id_for_dir
+    ledgar_config = multitask_model.ledgar_config
+    unfair_tos_config = multitask_model.unfair_tos_config
+
     logger.info(
-        "Initializing multi-task pipeline with LEDGAR as the leading task, %s epochs, and LEDGAR batch size %s.",
+        "Initializing multi-task pipeline for %s with LEDGAR as the leading task, %s epochs, and LEDGAR batch size %s.",
+        unique_id_for_dir,
         ledgar_config.epochs,
         ledgar_config.batch_size,
     )
@@ -120,7 +125,7 @@ def run_multitask_pipeline(ledgar_config: ModelConfig, unfair_tos_config: ModelC
 
     train_loaders, val_loaders, test_loaders = prepare_multitask_dataloaders(ledgar_config, unfair_tos_config)
 
-    model = MultiTaskModel(ledgar_config, unfair_tos_config)
+    model = multitask_model
     trainer = MultiTaskTrainer(model, ledgar_config, unfair_tos_config)
 
     # If the model completes training and saves its parameters, it returns the disk location path. If no file is generated, it stops early.
@@ -143,7 +148,7 @@ def run_multitask_pipeline(ledgar_config: ModelConfig, unfair_tos_config: ModelC
         test_metrics.get("unfair_tos_macro_f1", 0.0),
     )
 
-    logger.info("Multi-task pipeline successfully executed.\n" + "=" * 80)
+    logger.info("Multi-task pipeline successfully executed for %s.\n" + "=" * 80, unique_id_for_dir)
 
 
 # Bundles paired task configuration objects into a structured execution queue array list.
@@ -156,7 +161,7 @@ models_to_run = [
 
 def run_multitask_pipelines() -> None:
     for model in models_to_run:
-        run_multitask_pipeline(model.ledgar_config, model.unfair_tos_config)
+        run_multitask_pipeline(model)
 
 
 if __name__ == "__main__":

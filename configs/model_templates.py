@@ -223,13 +223,13 @@ unfair_tos_kd_student = ModelConfig(
 multi_task_kd_model_tester = MultiTaskModel(
     ledgar_config = ledgar_kd_student_tester,
     unfair_tos_config = unfair_tos_kd_student_tester,
-    unique_id_for_dir = "multi_task_model_tester"
+    unique_id_for_dir = "multi_task_kd_model_tester"
 )
 
 multi_task_supervised_model_tester = MultiTaskModel(
     ledgar_config = ledgar_supervised_student_tester,
     unfair_tos_config = unfair_tos_supervised_student_tester,
-    unique_id_for_dir = "multi_task_model_supervised_tester"
+    unique_id_for_dir = "multi_task_supervised_model_tester"
 )
 
 # Main Multi-task Supervised Model Configuration
@@ -245,5 +245,5 @@ multi_task_supervised_model = MultiTaskModel(
 multi_task_kd_model = MultiTaskModel(
     ledgar_config = ledgar_kd_student,
     unfair_tos_config = unfair_tos_kd_student,
-    unique_id_for_dir = "multi_task_model_main"
+    unique_id_for_dir = "multi_task_model_kd"
 )

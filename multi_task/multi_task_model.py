@@ -10,7 +10,7 @@ class MultiTaskModel(nn.Module):
 
     TASK_NAMES = ("ledgar", "unfair_tos")
 
-    def __init__(self, ledgar_config: ModelConfig, unfair_tos_config: ModelConfig, unique_id_for_dir: str = "multi_task_model") -> None:
+    def __init__(self, ledgar_config: ModelConfig, unfair_tos_config: ModelConfig, unique_id_for_dir: str) -> None:
         super().__init__()
 
         # A safety check. Because both tasks are going to share the exact same language model backbone, their underlying configuration strings must match exactly
