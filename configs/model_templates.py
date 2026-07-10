@@ -34,6 +34,20 @@ unfair_tos_teacher_tester = ModelConfig(
     preprocessed_data_dir = "raw"
 )
 
+ledgar_supervised_student_tester = ModelConfig(
+    task_name="ledgar",
+    num_labels=100,
+    problem_type="single_label",
+    loss_type="cross_entropy",
+    model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
+
+    percent_of_data=1,
+    batch_size = 16,
+
+    unique_id_for_dir = "supervised_student_tester",
+    preprocessed_data_dir = "raw"
+)
+
 unfair_tos_supervised_student_tester = ModelConfig(
     task_name="unfair_tos",
     num_labels=8,
@@ -205,44 +219,31 @@ unfair_tos_kd_student = ModelConfig(
 "------------------------MULTI-TASK CONFIGURATIONS------------------------"
 
 #Testers
-multi_task_ledgar_kd_student_tester = ModelConfig(
-    task_name="ledgar",
-    num_labels=100,
-    problem_type="single_label",
-    loss_type="kldiv",
-    model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
-    percent_of_data=1,
-    batch_size=16,
-    kd_teacher_weight_schedule="linear_epoch",
-    unique_id_for_dir="MT_kd_student_tester",
-    checkpoint_dir="./datasets_store/checkpoints/multi_task_kd_student_tester",
-    output_dir="./datasets_store/ds_with_teacher_outputs/multi_task_kd_student_tester",
-    preprocessed_data_dir="./datasets_store/ds_with_teacher_outputs/ledgar_teacher_outputs_tester",
-)
 
-multi_task_unfair_tos_kd_student_tester = ModelConfig(
-    task_name="unfair_tos",
-    num_labels=8,
-    problem_type="multi_label",
-    loss_type="kldiv",
-    model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
-    percent_of_data=1,
-    batch_size=4,
-    kd_teacher_weight_schedule="linear_epoch",
-    unique_id_for_dir="MT_kd_student_tester",
-    checkpoint_dir="./datasets_store/checkpoints/multi_task_kd_student_tester",
-    output_dir="./datasets_store/ds_with_teacher_outputs/multi_task_kd_student_tester",
-    preprocessed_data_dir="./datasets_store/ds_with_teacher_outputs/unfair_tos_teacher_outputs_tester",
-)
-
-multi_task_model_tester1 = MultiTaskModel(
-    ledgar_config=multi_task_ledgar_kd_student_tester,
-    unfair_tos_config=multi_task_unfair_tos_kd_student_tester,
-    unique_id_for_dir="multi_task_model_tester1"
-)
-
-multi_task_model_tester2 = MultiTaskModel(
+multi_task_kd_model_tester = MultiTaskModel(
     ledgar_config = ledgar_kd_student_tester,
     unfair_tos_config = unfair_tos_kd_student_tester,
-    unique_id_for_dir = "multi_task_model_tester2"
+    unique_id_for_dir = "multi_task_model_tester"
+)
+
+multi_task_supervised_model_tester = MultiTaskModel(
+    ledgar_config = ledgar_supervised_student_tester,
+    unfair_tos_config = unfair_tos_supervised_student_tester,
+    unique_id_for_dir = "multi_task_model_supervised_tester"
+)
+
+# Main Multi-task Supervised Model Configuration
+
+multi_task_supervised_model = MultiTaskModel(
+    ledgar_config = ledgar_supervised_student_baseline,
+    unfair_tos_config = unfair_tos_supervised_student_baseline,
+    unique_id_for_dir = "multi_task_model_supervised"
+)
+
+# Main Multi-task KD Model Configuration
+
+multi_task_kd_model = MultiTaskModel(
+    ledgar_config = ledgar_kd_student,
+    unfair_tos_config = unfair_tos_kd_student,
+    unique_id_for_dir = "multi_task_model_main"
 )

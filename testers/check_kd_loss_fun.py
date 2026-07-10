@@ -67,6 +67,7 @@ def test_teacher_weight_schedule_helper():
         num_labels=8,
         problem_type="multi_label",
         loss_type="kldiv",
+        model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
         unique_id_for_dir="sched",
         kd_teacher_weight_schedule="linear_epoch",
         kd_teacher_weight_start=1.0,

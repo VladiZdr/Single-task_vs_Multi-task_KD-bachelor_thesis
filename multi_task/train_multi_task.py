@@ -148,8 +148,10 @@ def run_multitask_pipeline(ledgar_config: ModelConfig, unfair_tos_config: ModelC
 
 # Bundles paired task configuration objects into a structured execution queue array list.
 models_to_run = [
-    model_config.multi_task_model_tester1,
-    model_config.multi_task_model_tester2,
+    model_config.multi_task_kd_model_tester,
+    model_config.multi_task_supervised_model_tester,
+    #model_config.multi_task_supervised_model,
+    #model_config.multi_task_kd_model
 ]
 
 def run_multitask_pipelines() -> None:
