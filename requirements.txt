@@ -6,3 +6,4 @@ datasets
 scikit-learn
 safetensors
 tqdm
+numpy

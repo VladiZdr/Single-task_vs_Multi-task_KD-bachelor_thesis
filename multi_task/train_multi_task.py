@@ -154,8 +154,8 @@ def run_multitask_pipeline(multitask_model: MultiTaskModel) -> None:
 # Bundles paired task configuration objects into a structured execution queue array list.
 models_to_run = [
     # Testers
-    model_config.multi_task_kd_model_tester,
-    model_config.multi_task_supervised_model_tester,
+    #model_config.multi_task_kd_model_tester,
+    #model_config.multi_task_supervised_model_tester,
 
     # Main Multi-task Models
     model_config.multi_task_supervised_model,
