@@ -18,7 +18,6 @@ from multi_task.multi_task_model import MultiTaskModel
 from multi_task.multi_task_trainer import MultiTaskTrainer
 from multi_task.train_multi_task import prepare_multitask_dataloaders
 
-
 def verify_metrics(metrics: Dict[str, float], required_keys: Iterable[str] = ("loss", "macro_f1", "micro_f1")) -> None:
     expected_keys = set(required_keys)
     missing_keys = expected_keys - set(metrics)
@@ -68,6 +67,94 @@ def _collect_task_predictions(trainer: MultiTaskTrainer, dataloader, task_name: 
     preds_array = np.concatenate(all_preds, axis=0)
     labels_array = np.concatenate(all_labels, axis=0)
     return labels_array, preds_array, batch_count, elapsed_seconds
+
+
+def _collect_single_task_predictions(trainer: LegalModelTrainer, dataloader):
+    all_preds = []
+    all_labels = []
+    start_time = time.perf_counter()
+    batch_count = 0
+
+    for batch in dataloader:
+        prepared = trainer._prepare_batch(batch)
+        labels = prepared["labels"]
+
+        assert isinstance(labels, torch.Tensor)
+
+        logits = trainer.model(prepared["input_ids"], prepared["attention_mask"], prepared["token_type_ids"])
+        if trainer.config.problem_type == "multi_label":
+            preds = (torch.sigmoid(logits) >= 0.5).int().cpu().numpy()
+        else:
+            preds = torch.argmax(logits, dim=-1).cpu().numpy()
+
+        all_preds.append(preds)
+        all_labels.append(labels.detach().cpu().numpy())
+        batch_count += 1
+
+    elapsed_seconds = time.perf_counter() - start_time
+
+    if not all_preds:
+        raise ValueError("No batches were processed for single-task analysis")
+
+    preds_array = np.concatenate(all_preds, axis=0)
+    labels_array = np.concatenate(all_labels, axis=0)
+    return labels_array, preds_array, batch_count, elapsed_seconds
+
+
+def analyze_single_task_performance_and_efficiency(
+    trainer: LegalModelTrainer,
+    dataloader,
+    task_name: str,
+    num_labels: int,
+) -> Dict[str, Dict[str, float]]:
+    labels_array, preds_array, batch_count, elapsed_seconds = _collect_single_task_predictions(trainer, dataloader)
+
+    if labels_array.ndim == 1:
+        precision, recall, f1, support = precision_recall_fscore_support(
+            labels_array,
+            preds_array,
+            labels=list(range(num_labels)),
+            average=None,
+            zero_division=0,
+        )
+    else:
+        precision, recall, f1, support = precision_recall_fscore_support(
+            labels_array,
+            preds_array,
+            average=None,
+            zero_division=0,
+        )
+
+    per_label_metrics: Dict[str, Dict[str, float]] = {}
+    for index in range(num_labels):
+        per_label_metrics[f"label_{index}"] = {
+            "precision": float(precision[index]),   #type: ignore
+            "recall": float(recall[index]),         #type: ignore
+            "f1": float(f1[index]),                 #type: ignore
+            "support": float(support[index]),       #type: ignore
+        }
+
+    total_samples = int(labels_array.shape[0])
+    efficiency = {
+        "elapsed_seconds": float(elapsed_seconds),
+        "num_batches": float(batch_count),
+        "num_samples": float(total_samples),
+        "samples_per_second": float(total_samples / elapsed_seconds) if elapsed_seconds > 0 else float("inf"),
+        "milliseconds_per_sample": float((elapsed_seconds / total_samples) * 1000.0) if total_samples > 0 else 0.0,
+        "milliseconds_per_batch": float((elapsed_seconds / batch_count) * 1000.0) if batch_count > 0 else 0.0,
+    }
+
+    print(
+        f"Per-label analysis for {task_name}: "
+        f"best={max(per_label_metrics.items(), key=lambda item: item[1]['f1'])[0]} "
+        f"worst={min(per_label_metrics.items(), key=lambda item: item[1]['f1'])[0]} "
+        f"throughput={efficiency['samples_per_second']:.2f} samples/s"
+    )
+
+    return {
+        "per_label": per_label_metrics,  #type: ignore
+        "efficiency": efficiency,
+    }
 
 
 def analyze_per_label_performance_and_efficiency(
@@ -159,6 +246,12 @@ def evaluate_model(param_config: ModelConfig) -> Dict[str, float]:
     trainer._remove_teacher_weight_for_evaluation()  # Ensure teacher weight is set to 0 for evaluation
     metrics = trainer.evaluate(val_loader)
     verify_metrics(metrics)
+    analyze_single_task_performance_and_efficiency(
+        trainer,
+        val_loader,
+        current_config.task_name,
+        current_config.num_labels,
+    )
 
     print(f"Evaluation metrics for {current_config.task_name}_{current_config.unique_id_for_dir}: {metrics}")
     return metrics
