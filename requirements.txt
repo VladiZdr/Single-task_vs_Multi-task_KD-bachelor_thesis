@@ -1,0 +1,8 @@
+torch
+torchvision
+torchaudio
+transformers
+datasets
+scikit-learn
+safetensors
+tqdm
