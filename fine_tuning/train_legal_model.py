@@ -119,14 +119,14 @@ models_to_run = [
         model_config.ledgar_kd_student_tester,
 
     # Teachers
-        #model_config.ledgar_teacher,
-        #model_config.unfair_tos_teacher,
+        model_config.ledgar_teacher,
+        model_config.unfair_tos_teacher,
     # Baseline Students
-        #model_config.ledgar_supervised_student_baseline,
-        #model_config.unfair_tos_supervised_student_baseline,
+        model_config.ledgar_supervised_student_baseline,
+        model_config.unfair_tos_supervised_student_baseline,
     # Knowledge Distillation Students
-        #model_config.ledgar_kd_student,
-        #model_config.unfair_tos_kd_student
+        model_config.ledgar_kd_student,
+        model_config.unfair_tos_kd_student
     ]
 
 def run_pipelines() -> None:
