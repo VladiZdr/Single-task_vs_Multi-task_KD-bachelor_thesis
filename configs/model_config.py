@@ -14,8 +14,9 @@ class ModelConfig:
     loss_type: Literal["cross_entropy", "bce_with_logits", "kldiv"]
     model_name_or_path: Literal["google/bert_uncased_L-4_H-256_A-4", "nlpaueb/legal-bert-base-uncased"]
     
-    # Cut data for quicker testing
-    percent_of_data: int = 100  # Use only "percent_of_data" % of the dataset for quicker testing
+    # Use only "percent_of_data" % of the dataset for quicker testing 
+    # If used on already cut DB (student on teacher outputs) -> it will cut it further
+    percent_of_data: int = 100  
 
     # Optimization Hyperparameters
     batch_size: int = 8
@@ -26,6 +27,9 @@ class ModelConfig:
     max_grad_norm: float = 1.0
     T: float = 1.0
     loss_reduction : Literal["mean", "sum"] = "mean"
+
+    # Parameter for low resource experiments
+    # Combined with "percent_of_data" leads to double cut on train set
     low_resource_percent: Literal[1, 10, 25, 50, 100] = 100
 
     # Knowledge Distillation Hyperparameters

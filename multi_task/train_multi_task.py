@@ -50,16 +50,7 @@ def _load_split_dataloaders(task_config: ModelConfig) -> Dict[str, DataLoader]:
             low_resource_percent=task_config.low_resource_percent,
         )
     else:
-        preprocessed = smart_load_dataset(task_config.preprocessed_data_dir)
-        preprocessed = sample_percent_dataset_for_testing(preprocessed, task_config.percent_of_data)
-        if not isinstance(preprocessed, DatasetDict):
-            raise ValueError(f"Expected a DatasetDict after loading {task_config.preprocessed_data_dir}.")
-        preprocessed = sample_low_resource_dataset(
-            preprocessed,
-            task_config.task_name,
-            task_config.low_resource_percent,
-            task_config.seed,
-        )
+        preprocessed = smart_load_dataset(task_config)
 
     # It expects a standard Hugging Face dictionary containing split tables (train, validation, test)
     if isinstance(preprocessed, DatasetDict):
@@ -170,7 +161,8 @@ def run_multitask_pipeline(multitask_model: MultiTaskModel) -> None:
 
 testers = [
     model_config.multi_task_kd_model_tester,
-    model_config.multi_task_supervised_model_tester
+    model_config.multi_task_supervised_model_tester,
+    #model_config.multi_task_check_low_resource,
 ]
 main_models = [
     model_config.multi_task_supervised_model,

@@ -8,7 +8,10 @@ from datasets_manipulation.preprocess_dataset import preprocess_dataset, _load_v
 from safetensors.torch import load_file
 import numpy as np
 from sklearn.model_selection import train_test_split
+from configs.model_config import ModelConfig
 
+
+#-----------------------Helper Methods for sampling for low resource experiments------------------
 
 def _get_label_column(dataset: Dataset) -> str:
     if "labels" in dataset.column_names:
@@ -65,6 +68,7 @@ def _sample_unfair_tos_train_split(train_dataset: Dataset, low_resource_percent:
     sample_size = max(1, int(len(train_dataset) * (low_resource_percent / 100)))
     if sample_size >= len(train_dataset):
         return train_dataset
+    holdout_size = len(train_dataset) - sample_size
 
     labels = _multi_hot_labels(train_dataset[label_column])
     features = np.zeros((len(train_dataset), 1))
@@ -72,6 +76,7 @@ def _sample_unfair_tos_train_split(train_dataset: Dataset, low_resource_percent:
     splitter = MultilabelStratifiedShuffleSplit(
         n_splits=1,
         train_size=sample_size,
+        test_size=holdout_size,     #type: ignore
         random_state=seed,
     )
     selected_indices, _ = next(splitter.split(features, labels))
@@ -97,6 +102,8 @@ def _sample_low_resource_train_split(raw: DatasetDict, dataset_name: str, low_re
         }
     )
 
+
+#-------------------------Helper Methods for cutting data-----------------------------------------
 
 def sample_low_resource_dataset(dataset: DatasetDict, dataset_name: str, low_resource_percent: int, seed: int) -> DatasetDict:
     if low_resource_percent >= 100:
@@ -124,18 +131,7 @@ def sample_percent_dataset_for_testing(dataset: DatasetDict | Dataset, percent_o
     return sample_split(dataset)
 
 
-def _raw_dataset_dir(dataset_name: str, percent_of_data: int, low_resource_percent: int, seed: int) -> Path:
-    if percent_of_data >= 100 and low_resource_percent >= 100:
-        return Path("datasets_store") / f"{dataset_name}_raw"
-
-    name_parts = [f"{dataset_name}_raw"]
-    if percent_of_data < 100:
-        name_parts.append(f"test{percent_of_data}pct")
-    if low_resource_percent < 100:
-        name_parts.append(f"low{low_resource_percent}pct_seed{seed}")
-
-    return Path("datasets_store") / "_".join(name_parts)
-
+#------------------------Methods for dataloading---------------------------------------------------
 
 def prep_dataset_from_raw(dataset_name: str, sample: int = 0, seed: int = 42, percent_of_data: int = 100, low_resource_percent: int = 100) -> DatasetDict | Dataset:
     """
@@ -150,23 +146,24 @@ def prep_dataset_from_raw(dataset_name: str, sample: int = 0, seed: int = 42, pe
     # Load raw dataset
     raw = load_dataset_raw(dataset_name, seed=seed)
 
+    # Cut data
     raw = sample_percent_dataset_for_testing(raw, percent_of_data)
-
     if low_resource_percent < 100:
         if not isinstance(raw, DatasetDict):
             raise ValueError(f"Expected a DatasetDict for low-resource sampling, got: {type(raw).__name__}")
         raw = sample_low_resource_dataset(raw, dataset_name, low_resource_percent, seed)
 
-    raw_dataset_dir = _raw_dataset_dir(dataset_name, percent_of_data, low_resource_percent, seed)
-
+    # Create preprocessed dir
+    raw_dataset_dir = Path (f"{dataset_name}_raw")
     path_preprocessed = str(raw_dataset_dir).replace("_raw", "_preprocessed")
     if os.path.exists(path_preprocessed):
         shutil.rmtree(path_preprocessed)
 
-    if percent_of_data < 100 or low_resource_percent < 100:
-        if raw_dataset_dir.exists():
-            shutil.rmtree(raw_dataset_dir)
-        raw.save_to_disk(str(raw_dataset_dir))
+    # If a folder named {dataset_name}_raw already exists on disk from a previous run , it deletes it completely (shutil.rmtree). 
+    # This prevents old-sized data from mixing with your new sliced dataset.
+    if raw_dataset_dir.exists():
+        shutil.rmtree(raw_dataset_dir)
+    raw.save_to_disk(str(raw_dataset_dir))
 
     # Preprocess the dataset
     return preprocess_dataset(raw_dataset_dir=raw_dataset_dir, sample=sample)
@@ -190,7 +187,7 @@ def load_teacher_safetensors_to_datasetdict(data_dir: str) -> DatasetDict:
         
     return DatasetDict(dataset_dict)
 
-def smart_load_dataset(task_config) -> DatasetDict:
+def smart_load_dataset(task_config: ModelConfig) -> DatasetDict:
     """
     Dynamically detects the dataset format on disk and loads it 
     using the appropriate strategy.
@@ -212,9 +209,8 @@ def smart_load_dataset(task_config) -> DatasetDict:
         # Fall back to standard Hugging Face loading
         preprocessed = _load_valid_dataset_dict(data_dir)
     
-    if task_config.percent_of_data < 100:
-        preprocessed = sample_percent_dataset_for_testing(preprocessed, task_config.percent_of_data)
-
+    # Cut data
+    preprocessed = sample_percent_dataset_for_testing(preprocessed, task_config.percent_of_data)
     if not isinstance(preprocessed, DatasetDict):
         raise ValueError(f"Expected a DatasetDict after loading {task_config.preprocessed_data_dir}.")
     if task_config.low_resource_percent < 100:

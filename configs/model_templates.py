@@ -34,6 +34,38 @@ unfair_tos_teacher_tester = ModelConfig(
     preprocessed_data_dir = "raw"
 )
 
+unfair_tos_teacher_low_ressource_tester = ModelConfig(
+    task_name="unfair_tos",
+    num_labels=8,
+    problem_type="multi_label",
+    loss_type="bce_with_logits",
+    model_name_or_path="nlpaueb/legal-bert-base-uncased",
+
+    percent_of_data= 1,
+    low_resource_percent=1,  
+    
+    batch_size=4,    
+
+    unique_id_for_dir = "low_ress_tester",
+    preprocessed_data_dir = "raw"
+)
+
+ledgar_teacher_low_ressource_tester = ModelConfig(
+    task_name="ledgar",
+    num_labels=100,
+    problem_type="single_label",
+    loss_type="cross_entropy",
+    model_name_or_path="nlpaueb/legal-bert-base-uncased",
+
+    percent_of_data=15,  
+    low_resource_percent=50,  
+
+    batch_size = 16,
+
+    unique_id_for_dir = "low_ress_tester",
+    preprocessed_data_dir = "raw"
+)
+
 ledgar_supervised_student_tester = ModelConfig(
     task_name="ledgar",
     num_labels=100,
@@ -68,7 +100,7 @@ unfair_tos_check_correct_load_preprocessed_dataset = ModelConfig(
     num_labels=8,
     problem_type="multi_label",
     loss_type="bce_with_logits",
-    model_name_or_path="nlpaueb/legal-bert-base-uncased",
+    model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
 
     percent_of_data=1,  
     
@@ -114,7 +146,7 @@ ledgar_kd_student_tester = ModelConfig(
     preprocessed_data_dir = "./datasets_store/ds_with_teacher_outputs/ledgar_teacher_outputs_tester"
 )
 
-unfair_tos_check_correct_low_ressource = ModelConfig(
+unfair_tos_kd_check_correct_low_ressource = ModelConfig(
     task_name="unfair_tos",
     num_labels=8,
     problem_type="multi_label",
@@ -128,10 +160,29 @@ unfair_tos_check_correct_low_ressource = ModelConfig(
 
     kd_teacher_weight_schedule = "linear_epoch",
 
-    unique_id_for_dir = "kd_student_tester",
+    unique_id_for_dir = "low_ressource_tester",
     preprocessed_data_dir = "./datasets_store/ds_with_teacher_outputs/unfair_tos_teacher_outputs_tester"
 )
 
+ledgar_kd_check_correct_low_ressource = ModelConfig(
+    task_name="ledgar",
+    num_labels=100,
+    problem_type="single_label",
+    loss_type="kldiv",
+    model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
+
+    low_resource_percent=50,  
+
+    batch_size = 16,
+    epochs = 2,
+
+    kd_teacher_weight_schedule = "linear_epoch",
+
+    unique_id_for_dir = "low_ressource_tester",
+    preprocessed_data_dir = "./datasets_store/ds_with_teacher_outputs/ledgar_teacher_outputs_tester"
+)
+
+#----------------------------END OF TESTERS------------------------------
 
 # Teachers
 ledgar_teacher = ModelConfig(
@@ -540,6 +591,14 @@ multi_task_supervised_model_tester = MultiTaskModel(
     unfair_tos_config = unfair_tos_supervised_student_tester,
     unique_id_for_dir = "multi_task_supervised_model_tester"
 )
+
+multi_task_check_low_resource = MultiTaskModel(
+    ledgar_config = ledgar_kd_check_correct_low_ressource,
+    unfair_tos_config = unfair_tos_kd_check_correct_low_ressource,
+    unique_id_for_dir = "multi_task_low_res_tester"
+)
+
+#----------------------------END OF TESTERS------------------------------
 
 # Main Multi-task Supervised Model Configuration
 

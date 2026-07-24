@@ -127,11 +127,19 @@ def run_task_pipeline(task_config: ModelConfig) -> None:
 testers = [
     model_config.ledgar_teacher_tester,
     model_config.unfair_tos_teacher_tester,
+
+    #model_config.ledgar_teacher_low_ressource_tester,
+    #model_config.unfair_tos_teacher_low_ressource_tester,
+
     model_config.unfair_tos_supervised_student_tester,
+
     model_config.unfair_tos_check_correct_load_preprocessed_dataset,
+
     model_config.unfair_tos_kd_student_tester,
     model_config.ledgar_kd_student_tester,
-    model_config.unfair_tos_check_correct_low_ressource
+    
+    model_config.unfair_tos_kd_check_correct_low_ressource,
+    #model_config.ledgar_kd_check_correct_low_ressource,
 ]
 
 main_models = [
