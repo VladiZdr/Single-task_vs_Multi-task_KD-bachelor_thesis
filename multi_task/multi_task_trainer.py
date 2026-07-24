@@ -139,43 +139,61 @@ class MultiTaskTrainer:
         total_loss = 0.0
         processed_batches = 0
 
-        # Sequential loop execution. This trainer processes the entire ledgar pipeline first before advancing forward onto the unfair_tos components.
-        for task_name in self.train_task_order:
-            dataloader = train_loaders.get(task_name)
-            if dataloader is None or len(dataloader) == 0:
-                continue
+        # Filter and identify active task dataloaders in specified task order
+        active_tasks = [
+            task
+            for task in self.train_task_order
+            if task in train_loaders and train_loaders[task] is not None and len(train_loaders[task]) > 0
+        ]
 
-            # Wraps data loading elements within a tqdm progress visualization widget
-            for batch in tqdm(dataloader, desc=f"Training {task_name}"):
+        if not active_tasks:
+            raise ValueError("Cannot train with no valid dataloaders")
 
-                # Wipes clean the historical backpropagation gradient parameters remaining from prior forward loops.
-                optimizer.zero_grad(set_to_none=True)
+        # Initialize iterators and track remaining active tasks
+        iterators = {task: iter(train_loaders[task]) for task in active_tasks}
+        remaining_tasks = list(active_tasks)
+        total_expected_batches = sum(len(train_loaders[task]) for task in active_tasks)
 
-                # Extracts data items out of local CPU processing arrays, pushes them down into designated target accelerator platform
-                prepared = self._prepare_batch(batch)
-                labels = prepared["labels"]
-                task = prepared["task"]
-                assert isinstance(labels, torch.Tensor)
-                assert isinstance(task, str)
+        # Interleave batch execution with a unified progress bar
+        with tqdm(total=total_expected_batches, desc="Multi-task Training (Round-Robin)") as pbar:
+            while remaining_tasks:
+                for task in list(remaining_tasks):
+                    try:
+                        batch = next(iterators[task])
+                    except StopIteration:
+                        # Datasets with fewer batches exhaust first; drop them and continue
+                        remaining_tasks.remove(task)
+                        continue
 
-                # Triggers the forward loop step across the shared Transformer network into specific active classification task target layer
-                logits = self.model(prepared["input_ids"], prepared["attention_mask"], prepared["token_type_ids"], task=task)
+                    # Wipes clean the historical backpropagation gradient parameters remaining from prior forward loops.
+                    optimizer.zero_grad(set_to_none=True)
 
-                assert logits.shape[0] == labels.shape[0], "Batch size mismatch"
-                assert logits.shape[1] == self.task_configs[task].num_labels, "Logit dimension mismatch"
+                    # Extracts data items out of local CPU processing arrays, pushes them down into designated target accelerator platform
+                    prepared = self._prepare_batch(batch)
+                    labels = prepared["labels"]
+                    batch_task = prepared["task"]
+                    assert isinstance(labels, torch.Tensor)
+                    assert isinstance(batch_task, str)
 
-                #Extracts loss evaluation scores combining tracking indices and structural constraints altogether.
-                loss = self._compute_loss(task, logits, prepared)
+                    # Triggers the forward loop step across the shared Transformer network into specific active classification task target layer
+                    logits = self.model(prepared["input_ids"], prepared["attention_mask"], prepared["token_type_ids"], task=batch_task)
 
-                # Updates the model's weights: backpropagation -> caps exploding gradients -> updates the actual model parameters -> scales down the active learning rate over time
-                loss.backward()
-                nn.utils.clip_grad_norm_(self.model.parameters(), self.ledgar_config.max_grad_norm)
-                optimizer.step()
-                scheduler.step()
+                    assert logits.shape[0] == labels.shape[0], "Batch size mismatch"
+                    assert logits.shape[1] == self.task_configs[batch_task].num_labels, "Logit dimension mismatch"
 
-                # Computes and returns the mean loss value across the entire training epoch loop.
-                total_loss += float(loss.item())
-                processed_batches += 1
+                    #Extracts loss evaluation scores combining tracking indices and structural constraints altogether.
+                    loss = self._compute_loss(batch_task, logits, prepared)
+
+                    # Updates the model's weights: backpropagation -> caps exploding gradients -> updates the actual model parameters -> scales down the active learning rate over time
+                    loss.backward()
+                    nn.utils.clip_grad_norm_(self.model.parameters(), self.ledgar_config.max_grad_norm)
+                    optimizer.step()
+                    scheduler.step()
+
+                    # Computes and returns the mean loss value across the entire training epoch loop.
+                    total_loss += float(loss.item())
+                    processed_batches += 1
+                    pbar.update(1)
 
         if processed_batches == 0:
             raise ValueError("No batches were processed during multi-task training")

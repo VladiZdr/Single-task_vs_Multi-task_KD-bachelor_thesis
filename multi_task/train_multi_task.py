@@ -113,10 +113,9 @@ def run_multitask_pipeline(multitask_model: MultiTaskModel) -> None:
     unfair_tos_config = multitask_model.unfair_tos_config
 
     logger.info(
-        "Initializing multi-task pipeline for %s with LEDGAR as the leading task, %s epochs, and LEDGAR batch size %s.",
+        "Initializing multi-task pipeline for %s with Round-Robin, %s epochs.",
         unique_id_for_dir,
         ledgar_config.epochs,
-        ledgar_config.batch_size,
     )
 
     if ledgar_config.epochs == 0:

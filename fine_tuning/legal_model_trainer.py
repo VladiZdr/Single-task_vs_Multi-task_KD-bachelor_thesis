@@ -72,7 +72,6 @@ class LegalModelTrainer:
         # Turns on training behavior, such as dropout
         self.model.train()
         total_loss = 0.0
-        current_batch_count = 0
         processed_batches = 0
 
         for batch in tqdm(dataloader, desc="Training Iteration"):
