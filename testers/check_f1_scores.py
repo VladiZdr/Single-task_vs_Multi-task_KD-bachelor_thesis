@@ -29,11 +29,11 @@ def _format_label_str(per_label_dict: Dict[str, Dict[str, float]], find_max: boo
 
 def print_table(single_results, multi_results):
     #  Print Final Summary Table 
-    header_len = 120
+    header_len = 140
     print("\n" + "=" * header_len)
     print(" FINAL EVALUATION SUMMARY ".center(header_len, "="))
     print("=" * header_len)
-    print(f"{'Model / Task Sub-Split':<40} | {'Loss':<7} | {'Macro-F1':<8} | {'Micro-F1':<8} | {'Best Label (F1)':<18} | {'Worst Label (F1)':<18} | {'Throughput':<10}")
+    print(f"{'Model / Task Sub-Split':<50} | {'Loss':<7} | {'Macro-F1':<8} | {'Micro-F1':<8} | {'Best Label (F1)':<18} | {'Worst Label (F1)':<18} | {'Throughput':<10}")
     print("-" * header_len)
 
     # Print Single-Task Models
@@ -47,7 +47,7 @@ def print_table(single_results, multi_results):
         worst_lbl = _format_label_str(per_label, find_max=False)
         throughput = f"{eff.get('samples_per_second', 0.0):.1f} smp/s" if eff else "-"
 
-        print(f"{name:<40} | {m.get('loss', 0.0):<7.4f} | {m.get('macro_f1', 0.0):<8.4f} | {m.get('micro_f1', 0.0):<8.4f} | {best_lbl:<18} | {worst_lbl:<18} | {throughput:<10}")
+        print(f"{name:<50} | {m.get('loss', 0.0):<7.4f} | {m.get('macro_f1', 0.0):<8.4f} | {m.get('micro_f1', 0.0):<8.4f} | {best_lbl:<18} | {worst_lbl:<18} | {throughput:<10}")
 
     # Print Multi-Task Models
     for name, res in multi_results:
@@ -55,7 +55,7 @@ def print_table(single_results, multi_results):
         analyses = res.get("analyses", {})
 
         # Overall row
-        print(f"{'[MultiTask] ' + name:<40} | {m.get('loss', 0.0):<7.4f} | {m.get('macro_f1', 0.0):<8.4f} | {m.get('micro_f1', 0.0):<8.4f} | {'-':<18} | {'-':<18} | {'-':<10}")
+        print(f"{'[MultiTask] ' + name:<50} | {m.get('loss', 0.0):<7.4f} | {m.get('macro_f1', 0.0):<8.4f} | {m.get('micro_f1', 0.0):<8.4f} | {'-':<18} | {'-':<18} | {'-':<10}")
 
         # Sub-tasks breakdown
         for task_key in ["ledgar", "unfair_tos"]:
@@ -72,7 +72,7 @@ def print_table(single_results, multi_results):
             throughput = f"{eff.get('samples_per_second', 0.0):.1f} smp/s" if eff else "-"
 
             prefix = "  ├─ LEDGAR" if task_key == "ledgar" else "  └─ UNFAIR-ToS"
-            print(f"{prefix:<40} | {t_loss:<7.4f} | {t_macro:<8.4f} | {t_micro:<8.4f} | {best_lbl:<18} | {worst_lbl:<18} | {throughput:<10}")
+            print(f"{prefix:<50} | {t_loss:<7.4f} | {t_macro:<8.4f} | {t_micro:<8.4f} | {best_lbl:<18} | {worst_lbl:<18} | {throughput:<10}")
 
     print("=" * header_len + "\n")
     print("All F1 checks passed.")
