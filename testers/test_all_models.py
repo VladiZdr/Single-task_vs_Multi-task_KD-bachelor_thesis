@@ -8,9 +8,9 @@ if __name__ == "__main__":
     check_all_f1_scores()
     print("\nStarting teacher output export checks...")
     check_all_exports()
-    print("\nStarting KD loss function checks...")
-    check_all_kd_loss_functions()
     print("\nStarting multi-task checks...")
     check_all_multi_task()
+    print("\nStarting KD loss function checks...")
+    check_all_kd_loss_functions()
 
     print("\nAll tests completed successfully.")

@@ -25,13 +25,12 @@ class ModelConfig:
     warmup_ratio: float = 0.1
     max_grad_norm: float = 1.0
     T: float = 1.0
-    alpha: float = 0.5
     loss_reduction : Literal["mean", "sum"] = "mean"
 
     # Knowledge Distillation Hyperparameters
     kd_teacher_weight_schedule: Literal["constant", "linear_epoch"] = "constant"
     kd_teacher_weight_start: float = 1.0
-    kd_teacher_weight_end: float = 1.0
+    kd_teacher_weight_end: float = 0.0
     
     # Hardware Routing
     device: Literal["auto", "cuda", "cpu"] = "auto"
@@ -95,7 +94,7 @@ class ModelConfig:
             )
 
     def get_loss_criterion(self) -> nn.Module:
-        return LossFunctions.get_loss_function(self.problem_type, self.loss_type, self.loss_reduction, self.T, self.alpha)
+        return LossFunctions.get_loss_function(self.problem_type, self.loss_type, self.loss_reduction, self.T)
 
     def get_kd_teacher_weight(self, epoch_index: int, total_epochs: int) -> float:
         if self.loss_type != "kldiv":
@@ -104,6 +103,6 @@ class ModelConfig:
         if self.kd_teacher_weight_schedule == "constant" or total_epochs <= 1:
             return self.kd_teacher_weight_start
 
-        # Works with total epochs >= 1
         progress = max(0.0, min(epoch_index / (total_epochs - 1), 1.0))
-        return self.kd_teacher_weight_start + progress * (self.kd_teacher_weight_end - self.kd_teacher_weight_start)
+
+        return self.kd_teacher_weight_start - progress * (self.kd_teacher_weight_start - self.kd_teacher_weight_end)

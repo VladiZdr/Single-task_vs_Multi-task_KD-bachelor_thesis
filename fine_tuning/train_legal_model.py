@@ -108,16 +108,16 @@ def run_task_pipeline(task_config: ModelConfig) -> None:
     SoftTargetExporter.export_all_splits(model, {"train": train_loader, "validation": val_loader, "test": test_loader}, task_config)
     logger.info(f"Task pipeline for {task_config.task_name}_{task_config.unique_id_for_dir} successfully executed.\n" + "="*80)
 
+testers = [
+    model_config.ledgar_teacher_tester,
+    model_config.unfair_tos_teacher_tester,
+    model_config.unfair_tos_supervised_student_tester,
+    model_config.unfair_tos_check_correct_load_preprocessed_dataset,
+    model_config.unfair_tos_kd_student_tester,
+    model_config.ledgar_kd_student_tester,
+]
 
-models_to_run = [
-    # Testers
-        #model_config.ledgar_teacher_tester,
-        #model_config.unfair_tos_teacher_tester,
-        #model_config.unfair_tos_supervised_student_tester,
-        #model_config.unfair_tos_check_correct_load_preprocessed_dataset,
-        #model_config.unfair_tos_kd_student_tester,
-        #model_config.ledgar_kd_student_tester,
-
+main_models = [
     # Teachers
         model_config.ledgar_teacher,
         model_config.unfair_tos_teacher,
@@ -127,7 +127,9 @@ models_to_run = [
     # Knowledge Distillation Students
         model_config.ledgar_kd_student,
         model_config.unfair_tos_kd_student
-    ]
+]
+
+models_to_run = testers
 
 def run_pipelines() -> None:
     for config in models_to_run:

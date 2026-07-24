@@ -88,6 +88,7 @@ unfair_tos_kd_student_tester = ModelConfig(
     percent_of_data=1,  
     
     batch_size=4,
+    epochs=2,
 
     kd_teacher_weight_schedule = "linear_epoch",
 
@@ -99,12 +100,13 @@ ledgar_kd_student_tester = ModelConfig(
     task_name="ledgar",
     num_labels=100,
     problem_type="single_label",
-    loss_type="cross_entropy",
+    loss_type="kldiv",
     model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
 
     percent_of_data=1,  
 
     batch_size = 16,
+    epochs = 2,
 
     kd_teacher_weight_schedule = "linear_epoch",
 

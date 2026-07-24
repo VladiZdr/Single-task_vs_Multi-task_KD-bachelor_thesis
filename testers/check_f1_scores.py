@@ -2,7 +2,7 @@ import os
 import sys
 import time
 from math import isfinite
-from typing import Dict, Iterable
+from typing import Any, Dict, Iterable
 
 if __package__ in (None, ""):
     sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
@@ -17,6 +17,65 @@ from fine_tuning.train_legal_model import prepare_dataloaders, models_to_run as 
 from multi_task.multi_task_model import MultiTaskModel
 from multi_task.multi_task_trainer import MultiTaskTrainer
 from multi_task.train_multi_task import prepare_multitask_dataloaders
+
+def _format_label_str(per_label_dict: Dict[str, Dict[str, float]], find_max: bool) -> str:
+    if not per_label_dict:
+        return "-"
+    if find_max:
+        label, data = max(per_label_dict.items(), key=lambda item: item[1]["f1"])
+    else:
+        label, data = min(per_label_dict.items(), key=lambda item: item[1]["f1"])
+    return f"{label} ({data['f1']:.2f})"
+
+def print_table(single_results, multi_results):
+    #  Print Final Summary Table 
+    header_len = 120
+    print("\n" + "=" * header_len)
+    print(" FINAL EVALUATION SUMMARY ".center(header_len, "="))
+    print("=" * header_len)
+    print(f"{'Model / Task Sub-Split':<40} | {'Loss':<7} | {'Macro-F1':<8} | {'Micro-F1':<8} | {'Best Label (F1)':<18} | {'Worst Label (F1)':<18} | {'Throughput':<10}")
+    print("-" * header_len)
+
+    # Print Single-Task Models
+    for name, res in single_results:
+        m = res["metrics"]
+        a = res.get("analysis", {})
+        per_label = a.get("per_label", {})
+        eff = a.get("efficiency", {})
+
+        best_lbl = _format_label_str(per_label, find_max=True)
+        worst_lbl = _format_label_str(per_label, find_max=False)
+        throughput = f"{eff.get('samples_per_second', 0.0):.1f} smp/s" if eff else "-"
+
+        print(f"{name:<40} | {m.get('loss', 0.0):<7.4f} | {m.get('macro_f1', 0.0):<8.4f} | {m.get('micro_f1', 0.0):<8.4f} | {best_lbl:<18} | {worst_lbl:<18} | {throughput:<10}")
+
+    # Print Multi-Task Models
+    for name, res in multi_results:
+        m = res["metrics"]
+        analyses = res.get("analyses", {})
+
+        # Overall row
+        print(f"{'[MultiTask] ' + name:<40} | {m.get('loss', 0.0):<7.4f} | {m.get('macro_f1', 0.0):<8.4f} | {m.get('micro_f1', 0.0):<8.4f} | {'-':<18} | {'-':<18} | {'-':<10}")
+
+        # Sub-tasks breakdown
+        for task_key in ["ledgar", "unfair_tos"]:
+            t_loss = m.get(f"{task_key}_loss", 0.0)
+            t_macro = m.get(f"{task_key}_macro_f1", 0.0)
+            t_micro = m.get(f"{task_key}_micro_f1", 0.0)
+
+            task_ana = analyses.get(task_key, {})
+            per_label = task_ana.get("per_label", {})
+            eff = task_ana.get("efficiency", {})
+
+            best_lbl = _format_label_str(per_label, find_max=True)
+            worst_lbl = _format_label_str(per_label, find_max=False)
+            throughput = f"{eff.get('samples_per_second', 0.0):.1f} smp/s" if eff else "-"
+
+            prefix = "  ├─ LEDGAR" if task_key == "ledgar" else "  └─ UNFAIR-ToS"
+            print(f"{prefix:<40} | {t_loss:<7.4f} | {t_macro:<8.4f} | {t_micro:<8.4f} | {best_lbl:<18} | {worst_lbl:<18} | {throughput:<10}")
+
+    print("=" * header_len + "\n")
+    print("All F1 checks passed.")
 
 def verify_metrics(metrics: Dict[str, float], required_keys: Iterable[str] = ("loss", "macro_f1", "micro_f1")) -> None:
     expected_keys = set(required_keys)
@@ -227,7 +286,7 @@ def analyze_per_label_performance_and_efficiency(
     }
 
 @torch.no_grad()
-def evaluate_model(param_config: ModelConfig) -> Dict[str, float]:
+def evaluate_model(param_config: ModelConfig) -> Dict[str, Any]:
     current_config = param_config
     checkpoint_path = os.path.join(current_config.checkpoint_dir, "best_model.pt")
 
@@ -246,7 +305,7 @@ def evaluate_model(param_config: ModelConfig) -> Dict[str, float]:
     trainer._remove_teacher_weight_for_evaluation()  # Ensure teacher weight is set to 0 for evaluation
     metrics = trainer.evaluate(val_loader)
     verify_metrics(metrics)
-    analyze_single_task_performance_and_efficiency(
+    analysis = analyze_single_task_performance_and_efficiency(
         trainer,
         val_loader,
         current_config.task_name,
@@ -254,11 +313,11 @@ def evaluate_model(param_config: ModelConfig) -> Dict[str, float]:
     )
 
     print(f"Evaluation metrics for {current_config.task_name}_{current_config.unique_id_for_dir}: {metrics}")
-    return metrics
+    return {"metrics": metrics, "analysis": analysis}
 
 
 @torch.no_grad()
-def evaluate_multi_task_model(param_model: MultiTaskModel) -> Dict[str, float]:
+def evaluate_multi_task_model(param_model: MultiTaskModel) -> Dict[str, Any]:
     current_model = param_model
     checkpoint_path = os.path.join("./datasets_store/checkpoints", current_model.unique_id_for_dir, "best_multi_task_model.pt")
 
@@ -282,6 +341,7 @@ def evaluate_multi_task_model(param_model: MultiTaskModel) -> Dict[str, float]:
     current_model.load_state_dict(torch.load(checkpoint_path, map_location=torch.device(trainer.device)))
     trainer._remove_teacher_weight_for_evaluation()
     metrics = trainer.evaluate(val_loaders)
+    
     verify_metrics(
         metrics,
         required_keys=(
@@ -298,35 +358,39 @@ def evaluate_multi_task_model(param_model: MultiTaskModel) -> Dict[str, float]:
     )
 
     ledgar_analysis = analyze_per_label_performance_and_efficiency(
-        trainer,
-        val_loaders["ledgar"],
-        "ledgar",
-        current_model.ledgar_config.num_labels,
+        trainer, val_loaders["ledgar"], "ledgar", current_model.ledgar_config.num_labels,
     )
     unfair_tos_analysis = analyze_per_label_performance_and_efficiency(
-        trainer,
-        val_loaders["unfair_tos"],
-        "unfair_tos",
-        current_model.unfair_tos_config.num_labels,
+        trainer, val_loaders["unfair_tos"], "unfair_tos", current_model.unfair_tos_config.num_labels,
     )
-
     print(
         f"Evaluation metrics for multi-task model {current_model.unique_id_for_dir}: {metrics}\n"
         f"LEDGAR analysis: {ledgar_analysis['efficiency']}\n"
         f"UNFAIR-ToS analysis: {unfair_tos_analysis['efficiency']}"
     )
-    return metrics
-
+    return {
+        "metrics": metrics,
+        "analyses": {
+            "ledgar": ledgar_analysis,
+            "unfair_tos": unfair_tos_analysis,
+        }
+    }
+    
 def check_all_f1_scores() -> None:
+    single_results = []
+    multi_results = []
+
     for config in single_task_models_to_run:
-        evaluate_model(param_config=config)
+        res = evaluate_model(param_config=config)
+        single_results.append((f"{config.task_name}_{config.unique_id_for_dir}", res))
 
     from multi_task.train_multi_task import models_to_run as multi_task_models_to_run
 
     for model in multi_task_models_to_run:
-        evaluate_multi_task_model(param_model=model)
+        res = evaluate_multi_task_model(param_model=model)
+        multi_results.append((f"{model.unique_id_for_dir}", res))
 
-    print("\nAll F1 checks passed.")
+    print_table(single_results, multi_results)
 
 if __name__ == "__main__":
     check_all_f1_scores()

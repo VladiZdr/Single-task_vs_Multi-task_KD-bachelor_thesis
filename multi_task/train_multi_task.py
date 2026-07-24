@@ -150,17 +150,17 @@ def run_multitask_pipeline(multitask_model: MultiTaskModel) -> None:
 
     logger.info("Multi-task pipeline successfully executed for %s.\n" + "=" * 80, unique_id_for_dir)
 
-
-# Bundles paired task configuration objects into a structured execution queue array list.
-models_to_run = [
-    # Testers
-    #model_config.multi_task_kd_model_tester,
-    #model_config.multi_task_supervised_model_tester,
-
-    # Main Multi-task Models
+testers = [
+    model_config.multi_task_kd_model_tester,
+    model_config.multi_task_supervised_model_tester
+]
+main_models = [
     model_config.multi_task_supervised_model,
     model_config.multi_task_kd_model
 ]
+
+# Bundles paired task configuration objects into a structured execution queue array list.
+models_to_run = testers
 
 def run_multitask_pipelines() -> None:
     for model in models_to_run:

@@ -4,25 +4,24 @@ import torch.nn.functional as F
 
 class LossFunctions:
     @staticmethod    
-    def get_loss_function(problem_type: str, loss_type: str, loss_reduction: str = "mean", T: float = 1.0, alpha: float = 0.5) -> nn.Module:
+    def get_loss_function(problem_type: str, loss_type: str, loss_reduction: str = "mean", T: float = 1.0) -> nn.Module:
         if problem_type == "single_label" and loss_type == "cross_entropy":
             return nn.CrossEntropyLoss(reduction=loss_reduction)
         elif problem_type == "multi_label" and loss_type == "bce_with_logits":
             return nn.BCEWithLogitsLoss(reduction=loss_reduction)
         elif loss_type == "kldiv":
-            return KDLoss(problem_type=problem_type, T=T, alpha=alpha, reduction=loss_reduction)
+            return KDLoss(problem_type=problem_type, T=T, reduction=loss_reduction)
         else:
             raise ValueError( f"Unsupported loss configuration: {problem_type} with loss type {loss_type}")
             
 
 class KDLoss(nn.Module):
-    def __init__(self, problem_type: str, T=1.0, alpha=0.5, reduction='mean'):
+    def __init__(self, problem_type: str, T=1.0, reduction='mean'):
         if problem_type not in ['single_label', 'multi_label']:
             raise ValueError(f"Unsupported problem_type: {problem_type} with loss type \"kldiv\"")
         
         super(KDLoss, self).__init__()
         self.T = T
-        self.alpha = alpha
         self.reduction = reduction
         self.problem_type = problem_type
         self.teacher_weight = 1.0  # This will be updated during training
@@ -56,5 +55,4 @@ class KDLoss(nn.Module):
             teacher_probs = torch.sigmoid(teacher_logits.detach() / self.T)
             distillation_loss = F.binary_cross_entropy(student_probs, teacher_probs, reduction=self.reduction) * (self.T ** 2)
             
-        dynamic_alpha = self.alpha * self.teacher_weight
-        return (1.0 - dynamic_alpha) * student_loss + (dynamic_alpha * distillation_loss)
+        return self.teacher_weight * distillation_loss + (1.0 - self.teacher_weight) * student_loss

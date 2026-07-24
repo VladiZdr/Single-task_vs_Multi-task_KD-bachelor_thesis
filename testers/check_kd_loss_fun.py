@@ -31,12 +31,11 @@ def test_get_loss_function_returns_expected_modules():
     assert isinstance(bce, torch.nn.BCEWithLogitsLoss)
     assert bce.reduction == "mean"
 
-    kd = LossFunctions.get_loss_function("multi_label", "kldiv", loss_reduction="sum", T=2.0, alpha=0.3)
+    kd = LossFunctions.get_loss_function("multi_label", "kldiv", loss_reduction="sum", T=2.0)
     assert isinstance(kd, KDLoss)
     assert kd.problem_type == "multi_label"
     assert kd.reduction == "sum"
     assert kd.T == 2.0
-    assert kd.alpha == 0.3
 
     with expect_raises(ValueError, "Unsupported loss configuration"):
         LossFunctions.get_loss_function("single_label", "bce_with_logits")
@@ -74,17 +73,20 @@ def test_teacher_weight_schedule_helper():
         kd_teacher_weight_end=0.0,
     )
 
+    # Epoch 0 should start fully on the teacher.
     assert config.get_kd_teacher_weight(0, 4) == 1.0
+    # Linear annealing should decay across the full training run.
     assert torch.isclose(torch.tensor(config.get_kd_teacher_weight(2, 4)), torch.tensor(1.0 / 3.0))
+    # Final epoch should reach zero teacher weight.
     assert config.get_kd_teacher_weight(3, 4) == 0.0
-    # ADDED BOUNDARY TEST: Check if it cleanly handles out-of-bounds steps
+    # Out-of-bounds epochs should clamp to the final value.
     assert config.get_kd_teacher_weight(5, 4) == 0.0
 
 
 def test_single_label_forward_and_gradients():
     batch_size = 4
     num_classes = 10
-    loss_fn = KDLoss(problem_type="single_label", T=2.0, alpha=0.5)
+    loss_fn = KDLoss(problem_type="single_label", T=2.0)
 
     student_logits = torch.randn(batch_size, num_classes, requires_grad=True)
     # ADDED: Check that teacher logits never collect gradients
@@ -108,7 +110,7 @@ def test_single_label_forward_and_gradients():
 def test_multi_label_forward_and_gradients():
     batch_size = 4
     num_classes = 5
-    loss_fn = KDLoss(problem_type="multi_label", T=3.0, alpha=0.3)
+    loss_fn = KDLoss(problem_type="multi_label", T=3.0)
 
     student_logits = torch.randn(batch_size, num_classes, requires_grad=True)
     teacher_logits = torch.randn(batch_size, num_classes)
@@ -124,7 +126,7 @@ def test_multi_label_forward_and_gradients():
 
 
 def test_teacher_weight_impact():
-    loss_fn = KDLoss(problem_type="single_label", alpha=0.5)
+    loss_fn = KDLoss(problem_type="single_label")
 
     student_logits = torch.randn(2, 5)
     teacher_logits = torch.randn(2, 5)
@@ -148,7 +150,7 @@ def test_teacher_weight_impact():
     assert abs(loss_0.item() - expected_pure_hard_loss) < 1e-6, "With teacher_weight=0, loss must equal pure hard loss."
 
 def test_teacher_weight_impact_multi_label():
-    loss_fn = KDLoss(problem_type="multi_label", alpha=0.5)
+    loss_fn = KDLoss(problem_type="multi_label")
 
     student_logits = torch.randn(2, 5)
     teacher_logits = torch.randn(2, 5)
@@ -165,8 +167,7 @@ def test_teacher_weight_impact_multi_label():
 
 def test_kdloss_with_concrete_values():
     T = 2.0
-    alpha = 0.5
-    loss_fn = KDLoss(problem_type="single_label", T=T, alpha=alpha, reduction="mean")
+    loss_fn = KDLoss(problem_type="single_label", T=T, reduction="mean")
 
     student_logits = torch.tensor([[0.5, -0.5]])
     teacher_logits = torch.tensor([[1.0, -1.0]])
@@ -184,7 +185,7 @@ def test_kdloss_with_concrete_values():
         reduction="batchmean",
     ) * (T ** 2)
 
-    expected_total_loss = (1 - alpha) * student_ce_expected + (alpha * expected_distill)
+    expected_total_loss = expected_distill
     actual_loss = loss_fn(student_logits, teacher_logits, labels)
 
     torch.testing.assert_close(
