@@ -156,7 +156,15 @@ testers = [
 ]
 main_models = [
     model_config.multi_task_supervised_model,
-    model_config.multi_task_kd_model
+    model_config.multi_task_kd_model,
+    model_config.multi_task_supervised_model_low_resource,
+    model_config.multi_task_kd_model_low_resource,
+    model_config.multi_task_supervised_model_final_seed_1,
+    model_config.multi_task_supervised_model_final_seed_2,
+    model_config.multi_task_supervised_model_final_seed_3,
+    model_config.multi_task_kd_model_final_seed_1,
+    model_config.multi_task_kd_model_final_seed_2,
+    model_config.multi_task_kd_model_final_seed_3,
 ]
 
 # Bundles paired task configuration objects into a structured execution queue array list.

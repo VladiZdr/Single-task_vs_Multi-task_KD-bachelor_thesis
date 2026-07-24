@@ -126,7 +126,25 @@ main_models = [
         model_config.unfair_tos_supervised_student_baseline,
     # Knowledge Distillation Students
         model_config.ledgar_kd_student,
-        model_config.unfair_tos_kd_student
+        model_config.unfair_tos_kd_student,
+    # Low-resource experiments
+        model_config.ledgar_supervised_student_low_resource,
+        model_config.unfair_tos_supervised_student_low_resource,
+        model_config.ledgar_kd_student_low_resource,
+        model_config.unfair_tos_kd_student_low_resource,
+    # Three-seed final experiments
+        model_config.ledgar_supervised_student_final_seed_1,
+        model_config.ledgar_supervised_student_final_seed_2,
+        model_config.ledgar_supervised_student_final_seed_3,
+        model_config.unfair_tos_supervised_student_final_seed_1,
+        model_config.unfair_tos_supervised_student_final_seed_2,
+        model_config.unfair_tos_supervised_student_final_seed_3,
+        model_config.ledgar_kd_student_final_seed_1,
+        model_config.ledgar_kd_student_final_seed_2,
+        model_config.ledgar_kd_student_final_seed_3,
+        model_config.unfair_tos_kd_student_final_seed_1,
+        model_config.unfair_tos_kd_student_final_seed_2,
+        model_config.unfair_tos_kd_student_final_seed_3,
 ]
 
 models_to_run = testers
