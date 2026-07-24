@@ -114,6 +114,25 @@ ledgar_kd_student_tester = ModelConfig(
     preprocessed_data_dir = "./datasets_store/ds_with_teacher_outputs/ledgar_teacher_outputs_tester"
 )
 
+unfair_tos_check_correct_low_ressource = ModelConfig(
+    task_name="unfair_tos",
+    num_labels=8,
+    problem_type="multi_label",
+    loss_type="kldiv",
+    model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
+
+    low_resource_percent=1,  
+    
+    batch_size=4,
+    epochs=2,
+
+    kd_teacher_weight_schedule = "linear_epoch",
+
+    unique_id_for_dir = "kd_student_tester",
+    preprocessed_data_dir = "./datasets_store/ds_with_teacher_outputs/unfair_tos_teacher_outputs_tester"
+)
+
+
 # Teachers
 ledgar_teacher = ModelConfig(
     task_name="ledgar",
@@ -225,7 +244,7 @@ ledgar_supervised_student_low_resource = ModelConfig(
     loss_type="cross_entropy",
     model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
 
-    percent_of_data=10,
+    low_resource_percent=50,
     batch_size=16,
     epochs=5,
 
@@ -242,7 +261,7 @@ unfair_tos_supervised_student_low_resource = ModelConfig(
     loss_type="bce_with_logits",
     model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
 
-    percent_of_data=10,
+    low_resource_percent=50,
     batch_size=4,
     epochs=5,
 
@@ -259,7 +278,7 @@ ledgar_kd_student_low_resource = ModelConfig(
     loss_type="kldiv",
     model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
 
-    percent_of_data=10,
+    low_resource_percent=50,
     batch_size=16,
     epochs=5,
 
@@ -278,7 +297,7 @@ unfair_tos_kd_student_low_resource = ModelConfig(
     loss_type="kldiv",
     model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
 
-    percent_of_data=10,
+    low_resource_percent=50,
     epochs=5,
 
     kd_teacher_weight_schedule="linear_epoch",

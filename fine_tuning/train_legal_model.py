@@ -4,7 +4,12 @@ from datasets import DatasetDict
 from torch.utils.data import DataLoader
 from configs.model_config import ModelConfig
 import configs.model_templates as model_config
-from datasets_manipulation.prepare_datasets import prep_dataset_from_raw, smart_load_dataset
+from datasets_manipulation.prepare_datasets import (
+    prep_dataset_from_raw,
+    sample_low_resource_dataset,
+    sample_percent_dataset_for_testing,
+    smart_load_dataset,
+)
 from fine_tuning.legal_model import LegalModel
 from fine_tuning.legal_model_trainer import LegalModelTrainer
 from fine_tuning.export_teacher_outputs import SoftTargetExporter
@@ -43,11 +48,17 @@ def prepare_dataloaders(task_config: ModelConfig) -> tuple[DataLoader, DataLoade
     
     # Load tokenized from disk if available, otherwise preprocess from raw data
     if task_config.preprocessed_data_dir == "raw":
-        preprocessed = prep_dataset_from_raw(dataset_name=task_config.task_name, seed=task_config.seed, percent_of_data=task_config.percent_of_data)
+        preprocessed = prep_dataset_from_raw(
+            dataset_name=task_config.task_name,
+            seed=task_config.seed,
+            percent_of_data=task_config.percent_of_data,
+            low_resource_percent=task_config.low_resource_percent,
+        )
     # If the preprocessed dataset is already available, load it directly from disk 
     # (smart_load_dataset handles both Hugging Face DatasetDict and Datasets of .safetensors)
     else:
-        preprocessed = smart_load_dataset(task_config.preprocessed_data_dir)
+        preprocessed = smart_load_dataset(task_config)
+        
 
     if isinstance(preprocessed, DatasetDict):
         train_dataset = preprocessed["train"]
@@ -83,7 +94,12 @@ def prepare_dataloaders(task_config: ModelConfig) -> tuple[DataLoader, DataLoade
     return train_loader, val_loader, test_loader
 
 def run_task_pipeline(task_config: ModelConfig) -> None:
-    logger.info(f"Initializing optimization pipeline for task: {task_config.task_name.upper()}_{task_config.unique_id_for_dir} with {task_config.epochs} epochs, {task_config.batch_size} batch size, and {task_config.percent_of_data}% of the dataset.")
+    logger.info(
+        f"Initializing optimization pipeline for task: {task_config.task_name.upper()}_{task_config.unique_id_for_dir} "
+        f"with {task_config.epochs} epochs, {task_config.batch_size} batch size, "
+        f"{task_config.percent_of_data}% testing data slice, and "
+        f"{task_config.low_resource_percent}% low-resource train slice."
+    )
     if task_config.epochs == 0:
         logger.info(f"Skipping task {task_config.task_name} because epochs=0.")
         return
@@ -115,6 +131,7 @@ testers = [
     model_config.unfair_tos_check_correct_load_preprocessed_dataset,
     model_config.unfair_tos_kd_student_tester,
     model_config.ledgar_kd_student_tester,
+    model_config.unfair_tos_check_correct_low_ressource
 ]
 
 main_models = [

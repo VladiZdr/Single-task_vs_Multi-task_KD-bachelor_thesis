@@ -8,7 +8,12 @@ from datasets import Dataset as HFDataset
 from datasets import DatasetDict
 from torch.utils.data import DataLoader
 from configs.model_config import ModelConfig
-from datasets_manipulation.prepare_datasets import prep_dataset_from_raw, smart_load_dataset
+from datasets_manipulation.prepare_datasets import (
+    prep_dataset_from_raw,
+    sample_low_resource_dataset,
+    sample_percent_dataset_for_testing,
+    smart_load_dataset,
+)
 from multi_task.multi_task_model import MultiTaskModel
 from multi_task.multi_task_trainer import MultiTaskTrainer
 import configs.model_templates as model_config
@@ -38,9 +43,23 @@ def seed_worker(worker_id: int) -> None:
 
 def _load_split_dataloaders(task_config: ModelConfig) -> Dict[str, DataLoader]:
     if task_config.preprocessed_data_dir == "raw":
-        preprocessed = prep_dataset_from_raw(dataset_name=task_config.task_name, seed=task_config.seed, percent_of_data=task_config.percent_of_data)
+        preprocessed = prep_dataset_from_raw(
+            dataset_name=task_config.task_name,
+            seed=task_config.seed,
+            percent_of_data=task_config.percent_of_data,
+            low_resource_percent=task_config.low_resource_percent,
+        )
     else:
         preprocessed = smart_load_dataset(task_config.preprocessed_data_dir)
+        preprocessed = sample_percent_dataset_for_testing(preprocessed, task_config.percent_of_data)
+        if not isinstance(preprocessed, DatasetDict):
+            raise ValueError(f"Expected a DatasetDict after loading {task_config.preprocessed_data_dir}.")
+        preprocessed = sample_low_resource_dataset(
+            preprocessed,
+            task_config.task_name,
+            task_config.low_resource_percent,
+            task_config.seed,
+        )
 
     # It expects a standard Hugging Face dictionary containing split tables (train, validation, test)
     if isinstance(preprocessed, DatasetDict):

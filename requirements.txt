@@ -4,6 +4,7 @@ torchaudio
 transformers
 datasets
 scikit-learn
+iterative-stratification
 safetensors
 tqdm
 numpy
