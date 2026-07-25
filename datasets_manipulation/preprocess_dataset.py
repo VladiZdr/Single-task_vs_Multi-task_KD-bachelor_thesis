@@ -7,7 +7,7 @@ from typing import cast
 from datasets import Dataset, DatasetDict, load_from_disk
 from transformers import AutoTokenizer
 
-def preprocess_dataset(raw_dataset_dir, sample) -> DatasetDict | Dataset:
+def preprocess_dataset(raw_dataset_dir, model_name) -> DatasetDict | Dataset:
     dataset_dir = create_preprocessed_dataset_dir(raw_dataset_dir=raw_dataset_dir)
 
     raw_dataset_dir = Path(raw_dataset_dir)
@@ -17,7 +17,7 @@ def preprocess_dataset(raw_dataset_dir, sample) -> DatasetDict | Dataset:
     clean_text(dataset_dir = dataset_dir)
     rename_label_to_labels(dataset_dir = dataset_dir)
     to_multi_hot(dataset_dir = dataset_dir)
-    tokenize_text(dataset_dir = dataset_dir)
+    tokenize_text(dataset_dir = dataset_dir, model_name=model_name)
 
     tokenized_ds = load_from_disk(str(dataset_dir))
 

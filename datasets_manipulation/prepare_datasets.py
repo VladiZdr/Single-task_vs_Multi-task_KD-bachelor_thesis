@@ -133,7 +133,7 @@ def sample_percent_dataset_for_testing(dataset: DatasetDict | Dataset, percent_o
 
 #------------------------Methods for dataloading---------------------------------------------------
 
-def prep_dataset_from_raw(dataset_name: str, sample: int = 0, seed: int = 42, percent_of_data: int = 100, low_resource_percent: int = 100) -> DatasetDict | Dataset:
+def prep_dataset_from_raw(task_config: ModelConfig) -> DatasetDict | Dataset:
     """
     Prepares the dataset by loading the raw data and preprocessing it.
     Args:
@@ -143,6 +143,11 @@ def prep_dataset_from_raw(dataset_name: str, sample: int = 0, seed: int = 42, pe
         percent_of_data (int): Percentage of every split to keep for quick tests.
         low_resource_percent (int): Stratified percentage of the train split to keep for low-resource runs.
     """
+    dataset_name = task_config.task_name 
+    seed = task_config.seed
+    percent_of_data= task_config.percent_of_data
+    low_resource_percent = task_config.low_resource_percent
+
     # Load raw dataset
     raw = load_dataset_raw(dataset_name, seed=seed)
 
@@ -154,19 +159,19 @@ def prep_dataset_from_raw(dataset_name: str, sample: int = 0, seed: int = 42, pe
         raw = sample_low_resource_dataset(raw, dataset_name, low_resource_percent, seed)
 
     # Create preprocessed dir
-    raw_dataset_dir = Path (f"{dataset_name}_raw")
+    raw_dataset_dir = Path (f"./datasets_store/{dataset_name}_raw")
     path_preprocessed = str(raw_dataset_dir).replace("_raw", "_preprocessed")
     if os.path.exists(path_preprocessed):
         shutil.rmtree(path_preprocessed)
 
     # If a folder named {dataset_name}_raw already exists on disk from a previous run , it deletes it completely (shutil.rmtree). 
-    # This prevents old-sized data from mixing with your new sliced dataset.
+    # This prevents old-sized data from mixing with new sliced dataset.
     if raw_dataset_dir.exists():
         shutil.rmtree(raw_dataset_dir)
     raw.save_to_disk(str(raw_dataset_dir))
 
     # Preprocess the dataset
-    return preprocess_dataset(raw_dataset_dir=raw_dataset_dir, sample=sample)
+    return preprocess_dataset(raw_dataset_dir=raw_dataset_dir, model_name=task_config.model_name_or_path)
 
 def load_teacher_safetensors_to_datasetdict(data_dir: str) -> DatasetDict:
     """Loads split safetensor files into a Hugging Face DatasetDict."""
@@ -225,8 +230,23 @@ if __name__ == "__main__":
     parser.add_argument("--low-resource-percent", type=int, default=100)
     args = parser.parse_args()
 
-    prep_dataset_from_raw(
-        dataset_name=args.dataset,
+    if args.dataset == ("ledgar"):
+        num_labels = 100
+        problem_type = "single_label"
+        loss_type = "cross_entropy"
+    else:
+        num_labels = 8
+        problem_type = "multi_label"
+        loss_type = "bce_with_logits"
+
+    tmp = ModelConfig(
+        task_name=args.dataset,
+        num_labels=num_labels,
+        problem_type = problem_type,
+        loss_type=loss_type,
+        model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
         percent_of_data=args.percent_of_data,
         low_resource_percent=args.low_resource_percent,
     )
+
+    prep_dataset_from_raw(tmp)

@@ -43,12 +43,7 @@ def seed_worker(worker_id: int) -> None:
 
 def _load_split_dataloaders(task_config: ModelConfig) -> Dict[str, DataLoader]:
     if task_config.preprocessed_data_dir == "raw":
-        preprocessed = prep_dataset_from_raw(
-            dataset_name=task_config.task_name,
-            seed=task_config.seed,
-            percent_of_data=task_config.percent_of_data,
-            low_resource_percent=task_config.low_resource_percent,
-        )
+        preprocessed = prep_dataset_from_raw(task_config)
     else:
         preprocessed = smart_load_dataset(task_config)
 
@@ -77,6 +72,7 @@ def _load_split_dataloaders(task_config: ModelConfig) -> Dict[str, DataLoader]:
 
     # Selects the required data columns.
     cols = ["input_ids", "attention_mask", "token_type_ids", "labels", "task"]
+
     if task_config.loss_type == "kldiv":
         cols.append("logits")
 

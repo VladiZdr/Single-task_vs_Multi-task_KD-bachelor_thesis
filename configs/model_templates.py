@@ -115,6 +115,7 @@ unfair_tos_kd_student_tester = ModelConfig(
     problem_type="multi_label",
     loss_type="kldiv",
     model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
+    teacher=unfair_tos_teacher_tester,
 
     percent_of_data=1,  
     
@@ -133,6 +134,7 @@ ledgar_kd_student_tester = ModelConfig(
     problem_type="single_label",
     loss_type="kldiv",
     model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
+    teacher=ledgar_teacher_tester,
 
     percent_of_data=1,  
 
@@ -151,6 +153,7 @@ unfair_tos_kd_check_correct_low_ressource = ModelConfig(
     problem_type="multi_label",
     loss_type="kldiv",
     model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
+    teacher=unfair_tos_teacher_tester,
 
     low_resource_percent=1,  
     
@@ -169,6 +172,7 @@ ledgar_kd_check_correct_low_ressource = ModelConfig(
     problem_type="single_label",
     loss_type="kldiv",
     model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
+    teacher=ledgar_teacher_tester,
 
     low_resource_percent=50,  
 
@@ -254,6 +258,7 @@ ledgar_kd_student = ModelConfig(
     problem_type="single_label",
     loss_type="kldiv",
     model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
+    teacher=ledgar_teacher,
 
     batch_size = 16,
     epochs = 5,
@@ -272,6 +277,7 @@ unfair_tos_kd_student = ModelConfig(
     problem_type="multi_label",
     loss_type="kldiv",
     model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
+    teacher=unfair_tos_teacher,
 
     epochs = 5,
 
@@ -327,6 +333,7 @@ ledgar_kd_student_low_resource = ModelConfig(
     problem_type="single_label",
     loss_type="kldiv",
     model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
+    teacher=ledgar_teacher,
 
     low_resource_percent=50,
     batch_size=16,
@@ -346,6 +353,7 @@ unfair_tos_kd_student_low_resource = ModelConfig(
     problem_type="multi_label",
     loss_type="kldiv",
     model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
+    teacher=unfair_tos_teacher,
 
     low_resource_percent=50,
     epochs=5,
@@ -467,6 +475,7 @@ ledgar_kd_student_final_seed_1 = ModelConfig(
     problem_type="single_label",
     loss_type="kldiv",
     model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
+    teacher=ledgar_teacher,
 
     batch_size=16,
     epochs=5,
@@ -486,6 +495,7 @@ ledgar_kd_student_final_seed_2 = ModelConfig(
     problem_type="single_label",
     loss_type="kldiv",
     model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
+    teacher=ledgar_teacher,
 
     batch_size=16,
     epochs=5,
@@ -505,6 +515,7 @@ ledgar_kd_student_final_seed_3 = ModelConfig(
     problem_type="single_label",
     loss_type="kldiv",
     model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
+    teacher=ledgar_teacher,
 
     batch_size=16,
     epochs=5,
@@ -524,6 +535,7 @@ unfair_tos_kd_student_final_seed_1 = ModelConfig(
     problem_type="multi_label",
     loss_type="kldiv",
     model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
+    teacher=unfair_tos_teacher,
 
     epochs=5,
     seed=42,
@@ -543,6 +555,7 @@ unfair_tos_kd_student_final_seed_2 = ModelConfig(
     problem_type="multi_label",
     loss_type="kldiv",
     model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
+    teacher=unfair_tos_teacher,
 
     epochs=5,
     seed=43,
@@ -562,6 +575,7 @@ unfair_tos_kd_student_final_seed_3 = ModelConfig(
     problem_type="multi_label",
     loss_type="kldiv",
     model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
+    teacher=unfair_tos_teacher,
 
     epochs=5,
     seed=44,
@@ -625,6 +639,7 @@ multi_task_kd_model_low_resource = MultiTaskModelConfig(
     unique_id_for_dir="multi_task_low_resource_kd",
 )
 
+# Main Multi-task different SEED models
 multi_task_supervised_model_final_seed_1 = MultiTaskModelConfig(
     ledgar_config=ledgar_supervised_student_final_seed_1,
     unfair_tos_config=unfair_tos_supervised_student_final_seed_1,

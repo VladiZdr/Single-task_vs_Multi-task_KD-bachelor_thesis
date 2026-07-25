@@ -45,9 +45,55 @@ class ModelConfig:
     checkpoint_dir: str = ""
     output_dir: str = ""
     unique_id_for_dir: str = ""
-    # raw means the dataset will be preprocessed from scratch, otherwise it will be loaded from disk
-    preprocessed_data_dir: Literal["raw", "./datasets_store/ds_with_teacher_outputs/ledgar_teacher_outputs_tester", "./datasets_store/ds_with_teacher_outputs/unfair_tos_teacher_outputs_tester", "./datasets_store/unfair_tos_preprocessed", "./datasets_store/ds_with_teacher_outputs/ledgar_teacher_outputs", "./datasets_store/ds_with_teacher_outputs/unfair_tos_teacher_outputs"]  = "raw" 
-    
+    teacher: ModelConfig | None = None
+    # Empty means "choose automatically" based on whether a teacher is attached.
+    preprocessed_data_dir: str = ""
+
+    @staticmethod
+    def _tokenizer_family_key(model_name_or_path: str) -> str:
+        normalized = model_name_or_path.lower()
+        if "bert" in normalized and "uncased" in normalized:
+            return "bert-uncased-wordpiece"
+        if "roberta" in normalized:
+            return "roberta-bpe"
+        if "deberta" in normalized:
+            return "deberta-bpe"
+        return normalized
+
+    def _tokenizer_signature(self) -> tuple[object, ...] | None:
+        try:
+            from transformers import AutoTokenizer
+
+            tokenizer = AutoTokenizer.from_pretrained(self.model_name_or_path, local_files_only=True)
+        except Exception:
+            return None
+
+        vocab = None
+        if hasattr(tokenizer, "get_vocab"):
+            try:
+                vocab = tokenizer.get_vocab()
+            except Exception:
+                vocab = None
+
+        return (
+            tokenizer.__class__.__name__,
+            getattr(tokenizer, "do_lower_case", None),
+            getattr(tokenizer, "model_max_length", None),
+            tokenizer.special_tokens_map,
+            vocab,
+        )
+
+    def _tokenizers_compatible(self, teacher: ModelConfig) -> bool:
+        student_signature = self._tokenizer_signature()
+        teacher_signature = teacher._tokenizer_signature()
+
+        if student_signature is not None and teacher_signature is not None:
+            return student_signature == teacher_signature
+
+        return self._tokenizer_family_key(self.model_name_or_path) == self._tokenizer_family_key(
+            teacher.model_name_or_path
+        )
+
     def __post_init__(self):
         if self.task_name == "ledgar" and self.num_labels != 100:
             raise ValueError(f"For task 'ledgar', num_labels must be 100, got {self.num_labels}.")
@@ -75,6 +121,34 @@ class ModelConfig:
             raise ValueError(f"kd_teacher_weight_start must be between 0 and 1, got {self.kd_teacher_weight_start}")
         if not 0.0 <= self.kd_teacher_weight_end <= 1.0:
             raise ValueError(f"kd_teacher_weight_end must be between 0 and 1, got {self.kd_teacher_weight_end}")
+        if self.loss_type == "kldiv" and self.teacher is None:
+            raise ValueError("loss_type='kldiv' requires a teacher config.")
+
+        if self.teacher is not None:
+            if self.loss_type != "kldiv":
+                raise ValueError("Teacher needed only for KD. Tasks with no KD mustn't have a teacher")
+            if self.teacher.task_name != self.task_name:
+                raise ValueError(
+                    "Teacher and student must use the same task. "
+                    f"Got student={self.task_name!r}, teacher={self.teacher.task_name!r}."
+                )
+            if not self._tokenizers_compatible(self.teacher):
+                raise ValueError(
+                    "Teacher and student tokenizers must be compatible, "
+                    f"but {self.model_name_or_path!r} and {self.teacher.model_name_or_path!r} are not."
+                )
+
+            expected_preprocessed_dir = self.teacher.output_dir
+            if not self.preprocessed_data_dir:
+                self.preprocessed_data_dir = expected_preprocessed_dir
+            elif self.preprocessed_data_dir != expected_preprocessed_dir:
+                raise ValueError(
+                    "When a teacher is attached, the student's preprocessed_data_dir must match "
+                    "the teacher output_dir. "
+                    f"Got student={self.preprocessed_data_dir!r}, teacher={expected_preprocessed_dir!r}."
+                )
+        elif not self.preprocessed_data_dir:
+            self.preprocessed_data_dir = "raw"
 
         if self.device == "auto":
             self.device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -123,3 +197,40 @@ class MultiTaskModelConfig:
     ledgar_config: ModelConfig
     unfair_tos_config: ModelConfig
     unique_id_for_dir: str
+
+    def __post_init__(self) -> None:
+        """
+        Multi-task training assumes both tasks share the same encoder and
+        optimization / KD setup. Fail fast if the paired configs drift apart.
+        """
+        shared_fields = (
+            "model_name_or_path",
+            "learning_rate",
+            "epochs",
+            "weight_decay",
+            "warmup_ratio",
+            "max_grad_norm",
+            "T",
+            "loss_reduction",
+            "kd_teacher_weight_schedule",
+            "kd_teacher_weight_start",
+            "kd_teacher_weight_end",
+            "low_resource_percent",
+            "device",
+            "seed",
+        )
+
+        mismatches: list[str] = []
+        for field_name in shared_fields:
+            ledgar_value = getattr(self.ledgar_config, field_name)
+            unfair_value = getattr(self.unfair_tos_config, field_name)
+            if ledgar_value != unfair_value:
+                mismatches.append(
+                    f"{field_name}: ledgar={ledgar_value!r}, unfair_tos={unfair_value!r}"
+                )
+
+        if mismatches:
+            raise ValueError(
+                "Multi-task configs must share the same encoder and hyperparameters, "
+                "but the following fields differ:\n- " + "\n- ".join(mismatches)
+            )

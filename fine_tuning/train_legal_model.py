@@ -48,12 +48,7 @@ def prepare_dataloaders(task_config: ModelConfig) -> tuple[DataLoader, DataLoade
     
     # Load tokenized from disk if available, otherwise preprocess from raw data
     if task_config.preprocessed_data_dir == "raw":
-        preprocessed = prep_dataset_from_raw(
-            dataset_name=task_config.task_name,
-            seed=task_config.seed,
-            percent_of_data=task_config.percent_of_data,
-            low_resource_percent=task_config.low_resource_percent,
-        )
+        preprocessed = prep_dataset_from_raw(task_config)
     # If the preprocessed dataset is already available, load it directly from disk 
     # (smart_load_dataset handles both Hugging Face DatasetDict and Datasets of .safetensors)
     else:
