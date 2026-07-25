@@ -14,6 +14,22 @@ class SoftTargetExporter:
     OPTIONAL_COLUMNS = {"token_type_ids"}
 
     @staticmethod
+    def _as_in_order_loader(dataloader: DataLoader) -> DataLoader:
+        """
+        Rebuild the loader with shuffle disabled so exported logits stay aligned
+        with the original dataset order.
+        """
+        return DataLoader(
+            dataloader.dataset,  # type: ignore[arg-type]
+            batch_size=dataloader.batch_size,
+            shuffle=False,
+            collate_fn=dataloader.collate_fn,
+            num_workers=dataloader.num_workers,
+            pin_memory=getattr(dataloader, "pin_memory", False),
+            drop_last=dataloader.drop_last,
+        )
+
+    @staticmethod
     def export_all_splits(model: torch.nn.Module, dataloaders: dict, config: ModelConfig) -> None:
         for split_name, dataloader in dataloaders.items():
             SoftTargetExporter.export(model, dataloader, config, split_name)
@@ -21,6 +37,8 @@ class SoftTargetExporter:
     @staticmethod
     @torch.no_grad() #no gradients are needed for inference
     def export(model: torch.nn.Module, dataloader: DataLoader, config: ModelConfig, split_name: str) -> None:
+        dataloader = SoftTargetExporter._as_in_order_loader(dataloader)
+
         if len(dataloader) == 0:
             raise ValueError(f"Cannot export soft targets for empty split: {split_name}")
         
