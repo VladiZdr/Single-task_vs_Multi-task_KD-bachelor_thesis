@@ -7,7 +7,7 @@ import torch
 from datasets import Dataset as HFDataset
 from datasets import DatasetDict
 from torch.utils.data import DataLoader
-from configs.model_config import ModelConfig
+from configs.model_config import ModelConfig, MultiTaskModelConfig
 from datasets_manipulation.prepare_datasets import (
     prep_dataset_from_raw,
     sample_low_resource_dataset,
@@ -117,10 +117,10 @@ def prepare_multitask_dataloaders(ledgar_config: ModelConfig, unfair_tos_config:
 
     return train_loaders, val_loaders, test_loaders
 
-def run_multitask_pipeline(multitask_model: MultiTaskModel) -> None:
-    unique_id_for_dir = multitask_model.unique_id_for_dir
-    ledgar_config = multitask_model.ledgar_config
-    unfair_tos_config = multitask_model.unfair_tos_config
+def run_multitask_pipeline(multitask_model_config: MultiTaskModelConfig) -> None:
+    unique_id_for_dir = multitask_model_config.unique_id_for_dir
+    ledgar_config = multitask_model_config.ledgar_config
+    unfair_tos_config = multitask_model_config.unfair_tos_config
 
     logger.info(
         "Initializing multi-task pipeline for %s with Round-Robin, %s epochs.",
@@ -134,7 +134,7 @@ def run_multitask_pipeline(multitask_model: MultiTaskModel) -> None:
 
     train_loaders, val_loaders, test_loaders = prepare_multitask_dataloaders(ledgar_config, unfair_tos_config)
 
-    model = multitask_model
+    model = MultiTaskModel(ledgar_config=ledgar_config, unfair_tos_config=unfair_tos_config, unique_id_for_dir=unique_id_for_dir)
     trainer = MultiTaskTrainer(model, ledgar_config, unfair_tos_config)
 
     # If the model completes training and saves its parameters, it returns the disk location path. If no file is generated, it stops early.

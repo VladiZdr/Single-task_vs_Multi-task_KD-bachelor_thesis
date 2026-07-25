@@ -1,5 +1,4 @@
-from configs.model_config import ModelConfig
-from multi_task.multi_task_model import MultiTaskModel
+from configs.model_config import ModelConfig, MultiTaskModelConfig
 
 
 "------------------------SINGLE-TASK CONFIGURATIONS------------------------"
@@ -576,89 +575,87 @@ unfair_tos_kd_student_final_seed_3 = ModelConfig(
     preprocessed_data_dir="./datasets_store/ds_with_teacher_outputs/unfair_tos_teacher_outputs",
 )
 
+
 "------------------------MULTI-TASK CONFIGURATIONS------------------------"
 
-#Testers
-
-multi_task_kd_model_tester = MultiTaskModel(
+# Testers
+multi_task_kd_model_tester = MultiTaskModelConfig(
     ledgar_config = ledgar_kd_student_tester,
     unfair_tos_config = unfair_tos_kd_student_tester,
-    unique_id_for_dir = "multi_task_kd_model_tester"
+    unique_id_for_dir = "multi_task_kd_model_tester",
 )
 
-multi_task_supervised_model_tester = MultiTaskModel(
+multi_task_supervised_model_tester = MultiTaskModelConfig(
     ledgar_config = ledgar_supervised_student_tester,
     unfair_tos_config = unfair_tos_supervised_student_tester,
-    unique_id_for_dir = "multi_task_supervised_model_tester"
+    unique_id_for_dir = "multi_task_supervised_model_tester",
 )
 
-multi_task_check_low_resource = MultiTaskModel(
+multi_task_check_low_resource = MultiTaskModelConfig(
     ledgar_config = ledgar_kd_check_correct_low_ressource,
     unfair_tos_config = unfair_tos_kd_check_correct_low_ressource,
     unique_id_for_dir = "multi_task_low_res_tester"
 )
 
-#----------------------------END OF TESTERS------------------------------
+#-------------------END OF TESTERS----------------------------------
 
 # Main Multi-task Supervised Model Configuration
-
-multi_task_supervised_model = MultiTaskModel(
+multi_task_supervised_model = MultiTaskModelConfig(
     ledgar_config = ledgar_supervised_student_baseline,
     unfair_tos_config = unfair_tos_supervised_student_baseline,
     unique_id_for_dir = "multi_task_model_supervised"
 )
 
 # Main Multi-task KD Model Configuration
-
-multi_task_kd_model = MultiTaskModel(
+multi_task_kd_model = MultiTaskModelConfig(
     ledgar_config = ledgar_kd_student,
     unfair_tos_config = unfair_tos_kd_student,
     unique_id_for_dir = "multi_task_model_kd"
 )
 
-multi_task_supervised_model_low_resource = MultiTaskModel(
+multi_task_supervised_model_low_resource = MultiTaskModelConfig(
     ledgar_config=ledgar_supervised_student_low_resource,
     unfair_tos_config=unfair_tos_supervised_student_low_resource,
     unique_id_for_dir="multi_task_low_resource_supervised",
 )
 
-multi_task_kd_model_low_resource = MultiTaskModel(
+multi_task_kd_model_low_resource = MultiTaskModelConfig(
     ledgar_config=ledgar_kd_student_low_resource,
     unfair_tos_config=unfair_tos_kd_student_low_resource,
     unique_id_for_dir="multi_task_low_resource_kd",
 )
 
-multi_task_supervised_model_final_seed_1 = MultiTaskModel(
+multi_task_supervised_model_final_seed_1 = MultiTaskModelConfig(
     ledgar_config=ledgar_supervised_student_final_seed_1,
     unfair_tos_config=unfair_tos_supervised_student_final_seed_1,
     unique_id_for_dir="multi_task_final_seed_1",
 )
 
-multi_task_supervised_model_final_seed_2 = MultiTaskModel(
+multi_task_supervised_model_final_seed_2 = MultiTaskModelConfig(
     ledgar_config=ledgar_supervised_student_final_seed_2,
     unfair_tos_config=unfair_tos_supervised_student_final_seed_2,
     unique_id_for_dir="multi_task_final_seed_2",
 )
 
-multi_task_supervised_model_final_seed_3 = MultiTaskModel(
+multi_task_supervised_model_final_seed_3 = MultiTaskModelConfig(
     ledgar_config=ledgar_supervised_student_final_seed_3,
     unfair_tos_config=unfair_tos_supervised_student_final_seed_3,
     unique_id_for_dir="multi_task_final_seed_3",
 )
 
-multi_task_kd_model_final_seed_1 = MultiTaskModel(
+multi_task_kd_model_final_seed_1 = MultiTaskModelConfig(
     ledgar_config=ledgar_kd_student_final_seed_1,
     unfair_tos_config=unfair_tos_kd_student_final_seed_1,
     unique_id_for_dir="multi_task_kd_final_seed_1",
 )
 
-multi_task_kd_model_final_seed_2 = MultiTaskModel(
+multi_task_kd_model_final_seed_2 = MultiTaskModelConfig(
     ledgar_config=ledgar_kd_student_final_seed_2,
     unfair_tos_config=unfair_tos_kd_student_final_seed_2,
     unique_id_for_dir="multi_task_kd_final_seed_2",
 )
 
-multi_task_kd_model_final_seed_3 = MultiTaskModel(
+multi_task_kd_model_final_seed_3 = MultiTaskModelConfig(
     ledgar_config=ledgar_kd_student_final_seed_3,
     unfair_tos_config=unfair_tos_kd_student_final_seed_3,
     unique_id_for_dir="multi_task_kd_final_seed_3",

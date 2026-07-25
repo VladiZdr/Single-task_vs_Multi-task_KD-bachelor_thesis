@@ -117,3 +117,9 @@ class ModelConfig:
         progress = max(0.0, min(epoch_index / (total_epochs - 1), 1.0))
 
         return self.kd_teacher_weight_start - progress * (self.kd_teacher_weight_start - self.kd_teacher_weight_end)
+
+@dataclass
+class MultiTaskModelConfig:
+    ledgar_config: ModelConfig
+    unfair_tos_config: ModelConfig
+    unique_id_for_dir: str
