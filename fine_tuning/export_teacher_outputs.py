@@ -49,7 +49,7 @@ class SoftTargetExporter:
         if len(dataloader) == 0:
             raise ValueError(f"Cannot export soft targets for empty split: {split_name}")
         
-        model.eval() # turnoff dropout and other training-specific layers
+        model.eval() # turn off dropout and other evaluation-specific layers
         device = torch.device(config.device)
         model.to(device)
 
@@ -74,7 +74,7 @@ class SoftTargetExporter:
             else:
                 probs = torch.softmax(logits, dim=-1)
 
-            # Move data to CPU and append to lists
+            # Move data to CPU and append to buffers
             tensor_buffers["input_ids"].append(input_ids.cpu())
             tensor_buffers["attention_mask"].append(attention_mask.cpu())
             if token_type_ids is not None:
@@ -83,21 +83,33 @@ class SoftTargetExporter:
             tensor_buffers["probabilities"].append(probs.cpu())
             tensor_buffers["labels"].append(labels.cpu())
 
-            # Identifies any secondary dynamic tokenizer view columns inside the batch and retrieves the supplementary column data.
+            # Collect secondary view columns if explicitly present in batch
             for column_name in get_available_tokenizer_view_columns(list(batch.keys())):
                 column_value = batch[column_name]
                 if isinstance(column_value, torch.Tensor):
                     tensor_buffers[column_name].append(column_value.cpu())
             
-        # Because GPUs have limited memory, we can't feed all our legal text into legal_bert at once. 
-        # Instead, we break the data into small batches. 
-        # Once the model has finished looping through all the batches, this  takes those fragmented pieces
-        # and glues them back together into single, continuous matrices so we can calculate our final global metrics
         payload = {
             column_name: torch.cat(tensors, dim=0).contiguous()
             for column_name, tensors in tensor_buffers.items()
             if tensors
         }
+
+        # -------------------------------------------------------------------------
+        # GUARANTEE ACTIVE TOKENIZER VIEW COLUMNS ARE PRESENT IN PAYLOAD
+        # -------------------------------------------------------------------------
+        active_tokenizer_view = get_tokenizer_view_for_model(config.model_name_or_path)
+    
+        # Use .clone() to avoid memory sharing across keys in safetensors
+        if f"{active_tokenizer_view}__input_ids" not in payload:
+            payload[f"{active_tokenizer_view}__input_ids"] = payload["input_ids"].clone()
+
+        if f"{active_tokenizer_view}__attention_mask" not in payload:
+            payload[f"{active_tokenizer_view}__attention_mask"] = payload["attention_mask"].clone()
+
+        if "token_type_ids" in payload and f"{active_tokenizer_view}__token_type_ids" not in payload:
+            payload[f"{active_tokenizer_view}__token_type_ids"] = payload["token_type_ids"].clone()
+        # -------------------------------------------------------------------------
 
         final_input_ids = payload["input_ids"]
         final_attention_masks = payload["attention_mask"]
@@ -108,11 +120,10 @@ class SoftTargetExporter:
         
         # Structural Sanity Assertions
         assert final_logits.shape[0] == final_input_ids.shape[0], "Batch size mismatch between logits and input_ids"
-        assert final_logits.shape[0] == len(dataloader.dataset), "Sample count mismatch in output"                      # type: ignore
+        assert final_logits.shape[0] == len(dataloader.dataset), "Sample count mismatch in output"                  # type: ignore
         assert final_logits.shape[1] == config.num_labels, "Logit dimension mismatch with label count"
 
-        # Determines the active tokenizer view name and extracts unique tokenizer view prefixes found in the payload (view_name__field_name).
-        active_tokenizer_view = get_tokenizer_view_for_model(config.model_name_or_path)
+        # Derive tokenizer views present in payload (after mirroring active view)
         tokenizer_views = sorted({column_name.split("__", 1)[0] for column_name in payload if "__" in column_name})
         unknown_views = [view_name for view_name in tokenizer_views if view_name not in TOKENIZER_VIEWS]
         if unknown_views:
