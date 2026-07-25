@@ -174,7 +174,7 @@ ledgar_kd_check_correct_low_ressource = ModelConfig(
     model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
     teacher=ledgar_teacher_tester,
 
-    low_resource_percent=50,  
+    low_resource_percent=1,  
 
     batch_size = 16,
     epochs = 2,

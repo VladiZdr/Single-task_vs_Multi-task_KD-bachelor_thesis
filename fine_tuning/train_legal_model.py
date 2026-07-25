@@ -5,7 +5,9 @@ from torch.utils.data import DataLoader
 from configs.model_config import ModelConfig
 import configs.model_templates as model_config
 from datasets_manipulation.prepare_datasets import (
+    get_torch_columns_for_split,
     prep_dataset_from_raw,
+    align_dataset_tokenization,
     sample_low_resource_dataset,
     sample_percent_dataset_for_testing,
     smart_load_dataset,
@@ -46,19 +48,14 @@ def seed_worker(worker_id: int) -> None:
 def prepare_dataloaders(task_config: ModelConfig) -> tuple[DataLoader, DataLoader, DataLoader]:
     set_all_seeds(task_config.seed)
     
-    # Load tokenized from disk if available, otherwise preprocess from raw data
+    # 1. Load tokenized dataset from disk or raw
     if task_config.preprocessed_data_dir == "raw":
         preprocessed = prep_dataset_from_raw(task_config)
-    # If the preprocessed dataset is already available, load it directly from disk 
-    # (smart_load_dataset handles both Hugging Face DatasetDict and Datasets of .safetensors)
     else:
         preprocessed = smart_load_dataset(task_config)
-        
 
     if isinstance(preprocessed, DatasetDict):
-        train_dataset = preprocessed["train"]
-        val_dataset = preprocessed["validation"]
-        test_dataset = preprocessed["test"]
+        pass
     elif isinstance(preprocessed, HFDataset):
         raise ValueError(
             f"prep_dataset('{task_config.task_name}') returned a single Dataset, "
@@ -67,24 +64,38 @@ def prepare_dataloaders(task_config: ModelConfig) -> tuple[DataLoader, DataLoade
     else:
         raise TypeError(f"Unexpected dataset type: {type(preprocessed)}")
 
-    # Force Torch formatting
-    cols = ["input_ids", "attention_mask", "token_type_ids", "labels"]
-    # Extract teacher logits when Knowledge Distillation is active
-    if task_config.loss_type == 'kldiv':
-        cols.append("logits")
-    train_dataset.set_format(type="torch", columns=cols)
-    val_dataset.set_format(type="torch", columns=cols)
-    test_dataset.set_format(type="torch", columns=cols)
+    # 2. Align standard input_ids/attention_mask to the active model view
+    if hasattr(task_config, "model_name_or_path"):
+        preprocessed = align_dataset_tokenization(preprocessed, task_config.model_name_or_path)
 
-    # Create minibatches
+    # 3. Format each split individually so no split drops its unique or view columns
+    is_kldiv = getattr(task_config, "loss_type", None) == "kldiv"
+    
+    for split_name in ["train", "validation", "test"]:
+        if split_name in preprocessed:
+            split_cols = get_torch_columns_for_split(
+                preprocessed[split_name],                                                           #type: ignore
+                include_logits=is_kldiv and ("logits" in preprocessed[split_name].column_names),    #type: ignore
+            )
+            preprocessed[split_name].set_format(type="torch", columns=split_cols)                   #type: ignore
+
+    train_dataset = preprocessed["train"]
+    val_dataset = preprocessed["validation"]
+    test_dataset = preprocessed["test"]
+
+    # 4. Create minibatches with isolated worker seeds
     generator = torch.Generator()
     generator.manual_seed(task_config.seed)
-    train_loader = DataLoader(train_dataset, batch_size=task_config.batch_size, shuffle=True, #type: ignore
-        generator=generator,        #Tells the DataLoader to run seeding function exactly once 
-        worker_init_fn=seed_worker, #inside each worker process right when it boots up, isolating their random states. 
-    ) 
-    val_loader = DataLoader(val_dataset, batch_size=task_config.batch_size, shuffle=False)    # type: ignore
-    test_loader = DataLoader(test_dataset, batch_size=task_config.batch_size, shuffle=False)  # type: ignore
+
+    train_loader = DataLoader(
+        train_dataset,                                                                       #type: ignore
+        batch_size=task_config.batch_size,
+        shuffle=True,
+        generator=generator,
+        worker_init_fn=seed_worker,
+    )
+    val_loader = DataLoader(val_dataset, batch_size=task_config.batch_size, shuffle=False)   #type: ignore
+    test_loader = DataLoader(test_dataset, batch_size=task_config.batch_size, shuffle=False) #type: ignore
 
     return train_loader, val_loader, test_loader
 

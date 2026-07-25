@@ -4,14 +4,23 @@ import argparse
 from pathlib import Path
 from datasets import Dataset, DatasetDict
 from datasets_manipulation.raw_loader import load_dataset_raw
-from datasets_manipulation.preprocess_dataset import preprocess_dataset, _load_valid_dataset_dict
+from datasets_manipulation.preprocess_dataset import (
+    TOKENIZER_FIELD_NAMES,
+    get_available_tokenizer_view_columns,
+    get_tokenizer_column_name,
+    get_tokenizer_view_columns,
+    get_tokenizer_view_for_model,
+    preprocess_dataset,
+    _load_valid_dataset_dict,
+)
 from safetensors.torch import load_file
 import numpy as np
 from sklearn.model_selection import train_test_split
 from configs.model_config import ModelConfig
 
 
-#-----------------------Helper Methods for sampling for low resource experiments------------------
+"""--------------------------------------------Helper Methods for sampling for low resource experiments----------------------------------------------------
+--------------These functions create realistic low-resource training scenarios while maintaining target label distributions via stratification.-----------"""
 
 def _get_label_column(dataset: Dataset) -> str:
     if "labels" in dataset.column_names:
@@ -20,7 +29,23 @@ def _get_label_column(dataset: Dataset) -> str:
         return "label"
     raise ValueError(f"Expected dataset to contain a label column, got columns: {dataset.column_names}")
 
+# Converts multi-label representations (e.g., list of label IDs like [0, 3]) 
+# into a 2D multi-hot binary NumPy array ([[1, 0, 0, 1, ...]]), which is required by multi-label stratifiers.
+def _multi_hot_labels(labels: list, num_labels: int = 8) -> np.ndarray:
+    if not labels:
+        return np.zeros((0, num_labels), dtype=np.int64)
 
+    first_label = labels[0]
+    if isinstance(first_label, list) and len(first_label) == num_labels and all(label in (0, 1) for label in first_label):
+        return np.asarray(labels, dtype=np.int64)
+
+    encoded = np.zeros((len(labels), num_labels), dtype=np.int64)
+    for row_index, label_ids in enumerate(labels):
+        for label_id in label_ids:
+            encoded[row_index, label_id] = 1
+    return encoded
+
+# Single-label stratified sampling for LEDGAR:
 def _sample_ledgar_train_split(train_dataset: Dataset, low_resource_percent: int, seed: int) -> Dataset:
     label_column = _get_label_column(train_dataset)
     sample_size = max(1, int(len(train_dataset) * (low_resource_percent / 100)))
@@ -39,22 +64,7 @@ def _sample_ledgar_train_split(train_dataset: Dataset, low_resource_percent: int
 
     return train_dataset.select(sorted(selected_indices.tolist()))
 
-
-def _multi_hot_labels(labels: list, num_labels: int = 8) -> np.ndarray:
-    if not labels:
-        return np.zeros((0, num_labels), dtype=np.int64)
-
-    first_label = labels[0]
-    if isinstance(first_label, list) and len(first_label) == num_labels and all(label in (0, 1) for label in first_label):
-        return np.asarray(labels, dtype=np.int64)
-
-    encoded = np.zeros((len(labels), num_labels), dtype=np.int64)
-    for row_index, label_ids in enumerate(labels):
-        for label_id in label_ids:
-            encoded[row_index, label_id] = 1
-    return encoded
-
-
+# Multi-label stratified sampling for UNFAIR-ToS:
 def _sample_unfair_tos_train_split(train_dataset: Dataset, low_resource_percent: int, seed: int) -> Dataset:
     try:
         from iterstrat.ml_stratifiers import MultilabelStratifiedShuffleSplit
@@ -83,7 +93,7 @@ def _sample_unfair_tos_train_split(train_dataset: Dataset, low_resource_percent:
 
     return train_dataset.select(sorted(selected_indices.tolist()))
 
-
+# Downsampling only to the "train" split while keeping validation and test splits untouched.
 def _sample_low_resource_train_split(raw: DatasetDict, dataset_name: str, low_resource_percent: int, seed: int) -> DatasetDict:
     if "train" not in raw:
         raise ValueError("Low-resource sampling requires a DatasetDict with a train split.")
@@ -102,9 +112,7 @@ def _sample_low_resource_train_split(raw: DatasetDict, dataset_name: str, low_re
         }
     )
 
-
-#-------------------------Helper Methods for cutting data-----------------------------------------
-
+# Validator enforcing allowed low-resource configurations
 def sample_low_resource_dataset(dataset: DatasetDict, dataset_name: str, low_resource_percent: int, seed: int) -> DatasetDict:
     if low_resource_percent >= 100:
         return dataset
@@ -115,6 +123,10 @@ def sample_low_resource_dataset(dataset: DatasetDict, dataset_name: str, low_res
 
     return _sample_low_resource_train_split(dataset, dataset_name, low_resource_percent, seed)
 
+
+"""---------------------------------------------------Helper Method for cutting debuging data--------------------------------------------------------------------"""
+
+# Truncates all splits (train, val, test) to a small fraction for fast testing (not used in final models).
 def sample_percent_dataset_for_testing(dataset: DatasetDict | Dataset, percent_of_data: int) -> DatasetDict | Dataset:
     if percent_of_data >= 100:
         return dataset
@@ -131,18 +143,83 @@ def sample_percent_dataset_for_testing(dataset: DatasetDict | Dataset, percent_o
     return sample_split(dataset)
 
 
-#------------------------Methods for dataloading---------------------------------------------------
+"""--------------------------------------------------------Tokenizer compatibility helpers-----------------------------------------------------------------------------
+-------------When running models with dual-view tokenized datasets, PyTorch expects primary inputs under input_ids, attention_mask, and token_type_ids---------. 
+-------------------------------These functions swap the active columns based on the model currently being executed.-----------------------------------------------"""
 
+#(e.g., google_bert__input_ids -> input_ids)
+def _align_split_tokenization(split: Dataset, model_name_or_path: str) -> Dataset:
+    """Looks up the requested model's view prefix and maps those prefixed columns back to standard names"""
+    view_name = get_tokenizer_view_for_model(model_name_or_path)
+    view_columns = get_tokenizer_view_columns(view_name)
+
+    if not all(column in split.column_names for column in view_columns):
+        if {"input_ids", "attention_mask"} <= set(split.column_names):
+            return split
+
+        raise ValueError(
+            f"Dataset split is missing tokenizer columns for model {model_name_or_path!r}: "
+            f"expected {view_columns}, got {split.column_names}"
+        )
+
+    def copy_view(batch: dict[str, list]) -> dict[str, list]:
+        aligned: dict[str, list] = {}
+        for field_name in TOKENIZER_FIELD_NAMES:
+            source_column = get_tokenizer_column_name(view_name, field_name)
+            if source_column in batch:
+                aligned[field_name] = batch[source_column]
+        return aligned
+
+    return split.map(copy_view, batched=True, keep_in_memory=True)
+
+def align_dataset_tokenization(dataset: DatasetDict | Dataset, model_name_or_path: str) -> DatasetDict | Dataset:
+    """
+    Overwrites standard input columns (input_ids, attention_mask, etc.) with values
+    from the target model's tokenizer view while keeping all view columns intact.
+    """
+    view_name = get_tokenizer_view_for_model(model_name_or_path)
+
+    def _align_split(split: Dataset) -> Dataset:
+        for field in TOKENIZER_FIELD_NAMES:  # e.g., ["input_ids", "attention_mask", "token_type_ids"]
+            view_col = get_tokenizer_column_name(view_name, field) # e.g., "legal_bert__input_ids"
+            
+            if view_col in split.column_names:
+                # 1. Drop existing standard column if present to avoid overwrite conflicts
+                if field in split.column_names:
+                    split = split.remove_columns(field)
+                # 2. Re-add standard column populated with the active view's data
+                split = split.add_column(field, split[view_col])
+                
+        return split
+
+    return DatasetDict({
+        split_name: _align_split(split_ds)
+        for split_name, split_ds in dataset.items()  #type: ignore
+    })
+
+# Return the torch-formatted columns we want to expose to the dataloaders.
+# Keeps the active tokenizer view as standard columns and preserves any extra tokenizer views for later export.
+def get_torch_columns_for_split( split: Dataset, *, include_task: bool = False, include_logits: bool = False, ) -> list[str]:
+    columns: list[str] = []
+
+    for column_name in ("input_ids", "attention_mask", "token_type_ids", "labels"):
+        if column_name in split.column_names:
+            columns.append(column_name)
+
+    if include_logits and "logits" in split.column_names:
+        columns.append("logits")
+
+    if include_task and "task" in split.column_names:
+        columns.append("task")
+
+    columns.extend(get_available_tokenizer_view_columns(split.column_names))
+    return columns
+
+
+"""---------------------------------------------------------Methods for dataloading---------------------------------------------------------------------------"""
+
+# Prepares the dataset by loading the raw data and preprocessing it.
 def prep_dataset_from_raw(task_config: ModelConfig) -> DatasetDict | Dataset:
-    """
-    Prepares the dataset by loading the raw data and preprocessing it.
-    Args:
-        dataset_name (str): Name of the dataset to prepare.
-        sample (int): Index of the sample to display for verification.
-        seed (int): Seed used when raw data needs to be split locally.
-        percent_of_data (int): Percentage of every split to keep for quick tests.
-        low_resource_percent (int): Stratified percentage of the train split to keep for low-resource runs.
-    """
     dataset_name = task_config.task_name 
     seed = task_config.seed
     percent_of_data= task_config.percent_of_data
@@ -158,23 +235,34 @@ def prep_dataset_from_raw(task_config: ModelConfig) -> DatasetDict | Dataset:
             raise ValueError(f"Expected a DatasetDict for low-resource sampling, got: {type(raw).__name__}")
         raw = sample_low_resource_dataset(raw, dataset_name, low_resource_percent, seed)
 
-    # Create preprocessed dir
-    raw_dataset_dir = Path (f"./datasets_store/{dataset_name}_raw")
-    path_preprocessed = str(raw_dataset_dir).replace("_raw", "_preprocessed")
-    if os.path.exists(path_preprocessed):
+    # Creates staging folders (..._staging) to avoid reading and writing to the same directory on disk simultaneously.
+    raw_dataset_dir = Path(f"./datasets_store/{dataset_name}_raw")
+    staging_dataset_dir = raw_dataset_dir.with_name(raw_dataset_dir.name + "_staging")
+    path_preprocessed = Path(str(raw_dataset_dir).replace("_raw", "_preprocessed"))
+    staging_preprocessed_dir = Path(str(staging_dataset_dir).replace("_raw", "_preprocessed"))
+
+    if path_preprocessed.exists():
         shutil.rmtree(path_preprocessed)
+    if staging_dataset_dir.exists():
+        shutil.rmtree(staging_dataset_dir)
+    if staging_preprocessed_dir.exists():
+        shutil.rmtree(staging_preprocessed_dir)
 
-    # If a folder named {dataset_name}_raw already exists on disk from a previous run , it deletes it completely (shutil.rmtree). 
-    # This prevents old-sized data from mixing with new sliced dataset.
-    if raw_dataset_dir.exists():
-        shutil.rmtree(raw_dataset_dir)
-    raw.save_to_disk(str(raw_dataset_dir))
+    raw.save_to_disk(str(staging_dataset_dir))
 
-    # Preprocess the dataset
-    return preprocess_dataset(raw_dataset_dir=raw_dataset_dir, model_name=task_config.model_name_or_path)
+    # Runs dual-view tokenization preprocessing on staging copies
+    try:
+        processed = preprocess_dataset(raw_dataset_dir=staging_dataset_dir, model_name=task_config.model_name_or_path)
+        processed.save_to_disk(str(path_preprocessed))
+        return processed
+    finally:
+        if staging_dataset_dir.exists():
+            shutil.rmtree(staging_dataset_dir)
+        if staging_preprocessed_dir.exists():
+            shutil.rmtree(staging_preprocessed_dir)
 
+#Loads split safetensor files into a Hugging Face DatasetDict.
 def load_teacher_safetensors_to_datasetdict(data_dir: str) -> DatasetDict:
-    """Loads split safetensor files into a Hugging Face DatasetDict."""
     splits = ["train", "validation", "test"] 
     dataset_dict = {}
     
@@ -192,11 +280,9 @@ def load_teacher_safetensors_to_datasetdict(data_dir: str) -> DatasetDict:
         
     return DatasetDict(dataset_dict)
 
+# Dynamically detects the dataset format on disk and loads it using the appropriate strategy.
 def smart_load_dataset(task_config: ModelConfig) -> DatasetDict:
-    """
-    Dynamically detects the dataset format on disk and loads it 
-    using the appropriate strategy.
-    """
+
     data_dir = task_config.preprocessed_data_dir
     if not os.path.isdir(data_dir):
         raise FileNotFoundError(f"The directory '{data_dir}' does not exist.")
@@ -213,6 +299,9 @@ def smart_load_dataset(task_config: ModelConfig) -> DatasetDict:
     else:
         # Fall back to standard Hugging Face loading
         preprocessed = _load_valid_dataset_dict(data_dir)
+
+    # Aligns tokenization columns for the target model.
+    preprocessed = align_dataset_tokenization(preprocessed, task_config.model_name_or_path)
     
     # Cut data
     preprocessed = sample_percent_dataset_for_testing(preprocessed, task_config.percent_of_data)

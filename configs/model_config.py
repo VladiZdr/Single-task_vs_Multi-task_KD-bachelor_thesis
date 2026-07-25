@@ -49,51 +49,7 @@ class ModelConfig:
     # Empty means "choose automatically" based on whether a teacher is attached.
     preprocessed_data_dir: str = ""
 
-    @staticmethod
-    def _tokenizer_family_key(model_name_or_path: str) -> str:
-        normalized = model_name_or_path.lower()
-        if "bert" in normalized and "uncased" in normalized:
-            return "bert-uncased-wordpiece"
-        if "roberta" in normalized:
-            return "roberta-bpe"
-        if "deberta" in normalized:
-            return "deberta-bpe"
-        return normalized
-
-    def _tokenizer_signature(self) -> tuple[object, ...] | None:
-        try:
-            from transformers import AutoTokenizer
-
-            tokenizer = AutoTokenizer.from_pretrained(self.model_name_or_path, local_files_only=True)
-        except Exception:
-            return None
-
-        vocab = None
-        if hasattr(tokenizer, "get_vocab"):
-            try:
-                vocab = tokenizer.get_vocab()
-            except Exception:
-                vocab = None
-
-        return (
-            tokenizer.__class__.__name__,
-            getattr(tokenizer, "do_lower_case", None),
-            getattr(tokenizer, "model_max_length", None),
-            tokenizer.special_tokens_map,
-            vocab,
-        )
-
-    def _tokenizers_compatible(self, teacher: ModelConfig) -> bool:
-        student_signature = self._tokenizer_signature()
-        teacher_signature = teacher._tokenizer_signature()
-
-        if student_signature is not None and teacher_signature is not None:
-            return student_signature == teacher_signature
-
-        return self._tokenizer_family_key(self.model_name_or_path) == self._tokenizer_family_key(
-            teacher.model_name_or_path
-        )
-
+    
     def __post_init__(self):
         if self.task_name == "ledgar" and self.num_labels != 100:
             raise ValueError(f"For task 'ledgar', num_labels must be 100, got {self.num_labels}.")
@@ -125,17 +81,10 @@ class ModelConfig:
             raise ValueError("loss_type='kldiv' requires a teacher config.")
 
         if self.teacher is not None:
-            if self.loss_type != "kldiv":
-                raise ValueError("Teacher needed only for KD. Tasks with no KD mustn't have a teacher")
             if self.teacher.task_name != self.task_name:
                 raise ValueError(
                     "Teacher and student must use the same task. "
                     f"Got student={self.task_name!r}, teacher={self.teacher.task_name!r}."
-                )
-            if not self._tokenizers_compatible(self.teacher):
-                raise ValueError(
-                    "Teacher and student tokenizers must be compatible, "
-                    f"but {self.model_name_or_path!r} and {self.teacher.model_name_or_path!r} are not."
                 )
 
             expected_preprocessed_dir = self.teacher.output_dir

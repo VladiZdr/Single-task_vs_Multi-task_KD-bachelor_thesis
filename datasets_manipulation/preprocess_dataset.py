@@ -7,11 +7,13 @@ from typing import cast
 from datasets import Dataset, DatasetDict, load_from_disk
 from transformers import AutoTokenizer
 
+"""----------------------------------------------Helper methods for preprocessing---------------------------------------------------------------------------"""
+
 def preprocess_dataset(raw_dataset_dir, model_name) -> DatasetDict | Dataset:
     dataset_dir = create_preprocessed_dataset_dir(raw_dataset_dir=raw_dataset_dir)
 
     raw_dataset_dir = Path(raw_dataset_dir)
-    dataset_name = raw_dataset_dir.name.replace("_raw", "")
+    dataset_name = raw_dataset_dir.name.replace("_staging", "").replace("_raw", "")
 
     add_task_marker(dataset_dir = dataset_dir, task_marker = dataset_name)
     clean_text(dataset_dir = dataset_dir)
@@ -23,6 +25,7 @@ def preprocess_dataset(raw_dataset_dir, model_name) -> DatasetDict | Dataset:
 
     return tokenized_ds
 
+# Loads and validates that dataset_dir is a proper Hugging Face DatasetDict containing a "train" split.
 def _load_valid_dataset_dict(dataset_dir):
     dataset_dir = Path(dataset_dir)
 
@@ -220,42 +223,104 @@ def to_multi_hot(dataset_dir):
 
     return _update_dataset_dir(dataset_dir, process)
 
+"""-------------------------------------------------------TOKENIZATION-------------------------------------------------------------------"""
 
 def tokenize_text(dataset_dir, model_name="nlpaueb/legal-bert-base-uncased", max_length=256):
     dataset_dir = Path(dataset_dir)
 
     def process(dataset):
         train_dataset = cast(Dataset, dataset["train"])
+        primary_view = get_tokenizer_view_for_model(model_name)
+        secondary_view = next(view for view in TOKENIZER_VIEWS if view != primary_view)
 
-        # Skip tokenization when rerunning preprocessing.
-        if {"input_ids", "attention_mask", "labels"} <= set(train_dataset.column_names):
+        # Skip tokenization only when both tokenizer views are already present.
+        if has_dual_tokenization(train_dataset.column_names) and {"input_ids", "attention_mask", "labels"} <= set(train_dataset.column_names):
             return None
 
         if "text" not in train_dataset.column_names:
             return None
 
-        # Load the tokenizer that matches the Legal-BERT model used for the experiments.
-        tokenizer = AutoTokenizer.from_pretrained(model_name)
+        tokenizers = {
+            primary_view: AutoTokenizer.from_pretrained(model_name),
+            secondary_view: AutoTokenizer.from_pretrained(TOKENIZER_VIEWS[secondary_view]),
+        }
 
-        # Tokenize one example's text into input_ids and attention_mask.
-        def tokenize(example):
-            return tokenizer(
-                example["text"],
-                truncation=True,
-                padding="max_length",
-                max_length=max_length,
-            )
+        # Tokenize one batch of text with both supported tokenizers and keep the
+        # primary model view in the standard column names.
+        def tokenize(batch):
+            texts = batch["text"]
+            encoded: dict[str, list[list[int]]] = {}
 
-        # Remove raw text and other non-label columns after tokenization.
+            for view_name, tokenizer in tokenizers.items():
+                tokenized = tokenizer(
+                    texts,
+                    truncation=True,
+                    padding="max_length",
+                    max_length=max_length,
+                    return_token_type_ids=True,
+                )
+
+                view_prefix = "" if view_name == primary_view else f"{view_name}__"
+                for field_name in TOKENIZER_FIELD_NAMES:
+                    if field_name in tokenized:
+                        encoded[f"{view_prefix}{field_name}"] = tokenized[field_name]
+
+            return encoded
+
+        # Remove the original text and any stale tokenized columns before writing the dual-view dataset.
         columns_to_remove = [
-            column for column in train_dataset.column_names if column != "labels" and column != "task"
+            column
+            for column in train_dataset.column_names
+            if column not in {"labels", "task"}
         ]
 
-        # Apply tokenization to every split and keep only the generated model inputs plus labels.
+        # Apply tokenization to every split and store both tokenizer views.
         return dataset.map(
             tokenize,
+            batched=True,
             remove_columns=columns_to_remove,
             keep_in_memory=True,
         )
 
     return _update_dataset_dir(dataset_dir, process)
+
+# Defines standard output tensors produced by BERT tokenizers.
+TOKENIZER_FIELD_NAMES = ("input_ids", "attention_mask", "token_type_ids")
+# Dictionary mapping internal alias names (legal_bert, google_bert) to Hugging Face model repository IDs.
+TOKENIZER_VIEWS = { "legal_bert": "nlpaueb/legal-bert-base-uncased", "google_bert": "google/bert_uncased_L-4_H-256_A-4"}
+# Inverts TOKENIZER_VIEWS to look up an alias given a Hugging Face repo string.
+MODEL_NAME_TO_VIEW = {model_name: view for view, model_name in TOKENIZER_VIEWS.items()}
+
+# Converts a model path string (e.g., "nlpaueb/legal-bert-base-uncased") into its view alias ("legal_bert")
+def get_tokenizer_view_for_model(model_name: str) -> str:
+    try:
+        return MODEL_NAME_TO_VIEW[model_name]
+    except KeyError as error:
+        raise ValueError(f"Unsupported model_name_or_path for tokenizer routing: {model_name!r}") from error
+
+# view_name="google_bert", field_name="input_ids" -> "google_bert__input_ids"
+def get_tokenizer_column_name(view_name: str, field_name: str) -> str:
+    if field_name not in TOKENIZER_FIELD_NAMES:
+        raise ValueError(f"Unsupported tokenizer field: {field_name!r}")
+    return f"{view_name}__{field_name}"
+
+# Returns all expected column names for a given view (e.g., ['legal_bert__input_ids', 'legal_bert__attention_mask', 'legal_bert__token_type_ids'])
+def get_tokenizer_view_columns(view_name: str) -> list[str]:
+    return [get_tokenizer_column_name(view_name, field_name) for field_name in TOKENIZER_FIELD_NAMES]
+
+# Helper function that checks if a dataset contains all 3 required columns for a given view alias.
+def _has_complete_tokenizer_view(column_names: list[str] | set[str], view_name: str) -> bool:
+    return all(get_tokenizer_column_name(view_name, field_name) in column_names for field_name in TOKENIZER_FIELD_NAMES)
+
+# Returns True if the dataset already contains tokenized outputs for both Legal-BERT and Google BERT.
+def has_dual_tokenization(column_names: list[str] | set[str]) -> bool:
+    return all(_has_complete_tokenizer_view(column_names, view_name) for view_name in TOKENIZER_VIEWS)
+
+# Collects and returns a list of all custom view columns that exist in the given column_names.
+def get_available_tokenizer_view_columns(column_names: list[str] | set[str]) -> list[str]:
+    return [
+        column_name
+        for view_name in TOKENIZER_VIEWS
+        for column_name in get_tokenizer_view_columns(view_name)
+        if column_name in column_names
+    ]

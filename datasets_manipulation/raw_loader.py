@@ -1,11 +1,20 @@
 import os
-from datasets import DatasetDict, load_dataset
+import shutil
+from datasets import DatasetDict, load_dataset, load_from_disk
 
 
 def load_dataset_raw(dataset, train_split=0.8, val_split=0.1, test_split=0.1, seed=42):
     raw_dir = os.path.join("datasets_store", f"{dataset}_raw")
     if os.path.isdir(raw_dir):
-        return DatasetDict.load_from_disk(raw_dir)
+        try:
+            loaded = load_from_disk(raw_dir)
+            if isinstance(loaded, DatasetDict) and {"train", "validation", "test"} <= set(loaded):
+                return loaded
+        except Exception:
+            pass
+
+        # The cache exists but is incomplete or corrupted. Remove it and rebuild.
+        shutil.rmtree(raw_dir)
 
     dataset_raw = load_dataset("coastalcph/lex_glue", dataset)
 

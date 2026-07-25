@@ -4,15 +4,18 @@ import random
 from typing import Dict
 import numpy as np
 import torch
+from datasets import Dataset
 from datasets import Dataset as HFDataset
 from datasets import DatasetDict
 from torch.utils.data import DataLoader
 from configs.model_config import ModelConfig, MultiTaskModelConfig
 from datasets_manipulation.prepare_datasets import (
+    get_torch_columns_for_split,
     prep_dataset_from_raw,
     sample_low_resource_dataset,
     sample_percent_dataset_for_testing,
     smart_load_dataset,
+    align_dataset_tokenization
 )
 from multi_task.multi_task_model import MultiTaskModel
 from multi_task.multi_task_trainer import MultiTaskTrainer
@@ -41,67 +44,74 @@ def seed_worker(worker_id: int) -> None:
     np.random.seed(worker_seed)
     random.seed(worker_seed)
 
-def _load_split_dataloaders(task_config: ModelConfig) -> Dict[str, DataLoader]:
+def _load_split_dataloaders(task_config: ModelConfig) -> dict[str, DataLoader]:
+    set_all_seeds(task_config.seed)
+
     if task_config.preprocessed_data_dir == "raw":
         preprocessed = prep_dataset_from_raw(task_config)
     else:
         preprocessed = smart_load_dataset(task_config)
 
-    # It expects a standard Hugging Face dictionary containing split tables (train, validation, test)
     if isinstance(preprocessed, DatasetDict):
-        train_dataset = preprocessed["train"]
-        val_dataset = preprocessed["validation"]
-        test_dataset = preprocessed["test"]
+        pass
     elif isinstance(preprocessed, HFDataset):
         raise ValueError(
-            f"prep_dataset('{task_config.task_name}') returned a single Dataset, but this pipeline expects train/validation/test splits."
+            f"prep_dataset('{task_config.task_name}') returned a single Dataset, "
+            "but this pipeline expects train/validation/test splits."
         )
     else:
         raise TypeError(f"Unexpected dataset type: {type(preprocessed)}")
 
-    # Injects a programmatic tracking token inline. This loops through the datasets and adds a text column filled with the task name (e.g., "ledgar"), 
-    # so the multi-task model knows which classification head to use during training.
-    def attach_task_column(dataset):
+    # 1. Align standard input_ids to target model view
+    if hasattr(task_config, "model_name_or_path") and task_config.model_name_or_path:
+        preprocessed = align_dataset_tokenization(preprocessed, task_config.model_name_or_path)
+
+    # 2. Attach task metadata string column
+    def attach_task_column(dataset: Dataset) -> Dataset:
         if "task" in dataset.column_names:
             return dataset
         return dataset.add_column("task", [task_config.task_name] * len(dataset))
 
-    train_dataset = attach_task_column(train_dataset)
-    val_dataset = attach_task_column(val_dataset)
-    test_dataset = attach_task_column(test_dataset)
-
-    # Selects the required data columns.
-    cols = ["input_ids", "attention_mask", "token_type_ids", "labels", "task"]
-
-    if task_config.loss_type == "kldiv":
-        cols.append("logits")
-
-    # Changes the dataset output format, transforming Hugging Face text storage spaces directly into active PyTorch Tensors
-    train_dataset.set_format(type="torch", columns=cols)
-    val_dataset.set_format(type="torch", columns=cols)
-    test_dataset.set_format(type="torch", columns=cols)
-
-    # Instantiates a standalone PyTorch random sampling generation object tied down strictly to your project seed.
     generator = torch.Generator()
     generator.manual_seed(task_config.seed)
 
-    # Wraps the structured datasets into iterable PyTorch streaming objects (DataLoader). 
-    # The training data is randomized using locked seed generator, while validation and testing data stream through sequentially (shuffle=False).
-    train_loader = DataLoader(
-        train_dataset,                      # type: ignore
-        batch_size=task_config.batch_size,
-        shuffle=True,
-        generator=generator,
-        worker_init_fn=seed_worker,
-    )
-    val_loader = DataLoader(val_dataset, batch_size=task_config.batch_size, shuffle=False)      # type: ignore
-    test_loader = DataLoader(test_dataset, batch_size=task_config.batch_size, shuffle=False)    # type: ignore
+    is_kldiv = getattr(task_config, "loss_type", None) == "kldiv"
+    loaders = {}
 
-    return {"train": train_loader, "validation": val_loader, "test": test_loader}
+    for split_name in ["train", "validation", "test"]:
+        if split_name not in preprocessed:
+            continue
 
-# Collects and organizes data streams. It runs data loader generator for both tasks and regroups them into multi-task dictionaries sorted by split type 
-# (all training loaders together, all validation loaders together, etc.).
-def prepare_multitask_dataloaders(ledgar_config: ModelConfig, unfair_tos_config: ModelConfig) -> tuple[dict[str, DataLoader], dict[str, DataLoader], dict[str, DataLoader]]:
+        split_ds = attach_task_column(preprocessed[split_name])                     #type:ignore
+
+        # 3. Determine columns per split (only request logits if actually present)
+        split_has_logits = is_kldiv and ("logits" in split_ds.column_names)
+        
+        # Exclude 'task' string column from PyTorch tensor casting!
+        torch_cols = get_torch_columns_for_split(
+            split_ds,
+            include_task=False, 
+            include_logits=split_has_logits,
+        )
+
+        # Format numeric/tokenizer columns to torch tensors while leaving metadata as python objects
+        split_ds.set_format(type="torch", columns=torch_cols, output_all_columns=True)
+
+        is_train = split_name == "train"
+        loaders[split_name] = DataLoader(
+            split_ds, # type: ignore
+            batch_size=task_config.batch_size,
+            shuffle=is_train,
+            generator=generator if is_train else None,
+            worker_init_fn=seed_worker if is_train else None,
+        )
+
+    return loaders
+
+def prepare_multitask_dataloaders(
+    ledgar_config: ModelConfig, 
+    unfair_tos_config: ModelConfig
+) -> tuple[dict[str, DataLoader], dict[str, DataLoader], dict[str, DataLoader]]:
     set_all_seeds(ledgar_config.seed)
 
     ledgar_loaders = _load_split_dataloaders(ledgar_config)

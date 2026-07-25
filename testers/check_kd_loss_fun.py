@@ -61,6 +61,18 @@ def test_set_teacher_weight():
 
 
 def test_teacher_weight_schedule_helper():
+    teacher = ModelConfig(
+                task_name="unfair_tos",
+                num_labels=8,
+                problem_type="multi_label",
+                loss_type="bce_with_logits",
+                model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
+                unique_id_for_dir="sched",
+                kd_teacher_weight_schedule="linear_epoch",
+                kd_teacher_weight_start=1.0,
+                kd_teacher_weight_end=0.0,
+                output_dir= "tmp"
+    )
     config = ModelConfig(
         task_name="unfair_tos",
         num_labels=8,
@@ -71,6 +83,9 @@ def test_teacher_weight_schedule_helper():
         kd_teacher_weight_schedule="linear_epoch",
         kd_teacher_weight_start=1.0,
         kd_teacher_weight_end=0.0,
+
+        teacher=teacher,
+        preprocessed_data_dir="tmp"
     )
 
     # Epoch 0 should start fully on the teacher.

@@ -106,7 +106,22 @@ def make_config(
     model_name_or_path: str = "google/bert_uncased_L-4_H-256_A-4",
 ) -> ModelConfig:
     num_labels = 100 if task_name == "ledgar" else 8
+    teacher_loss = "bce_with_logits" if task_name == "unfair_tos" else "cross_entropy"
     with patch("configs.model_config.os.makedirs", lambda *args, **kwargs: None):
+        teacher = ModelConfig(
+            task_name=task_name,  #type: ignore
+            num_labels=num_labels,  #type: ignore
+            problem_type=problem_type,  #type: ignore
+            loss_type=teacher_loss,  #type: ignore
+            model_name_or_path=model_name_or_path,  #type: ignore
+            epochs=epochs,
+            device="cpu",
+            kd_teacher_weight_schedule=schedule,  #type: ignore
+            kd_teacher_weight_start=start,
+            kd_teacher_weight_end=end,
+            unique_id_for_dir=unique_id_for_dir,
+            preprocessed_data_dir= "tmp"
+        )
         return ModelConfig(
             task_name=task_name,  #type: ignore
             num_labels=num_labels,  #type: ignore
@@ -119,6 +134,7 @@ def make_config(
             kd_teacher_weight_start=start,
             kd_teacher_weight_end=end,
             unique_id_for_dir=unique_id_for_dir,
+            teacher=teacher
         )
 
 
