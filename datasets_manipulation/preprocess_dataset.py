@@ -9,7 +9,7 @@ from transformers import AutoTokenizer
 
 """----------------------------------------------------------------Helper methods for preprocessing---------------------------------------------------------------------------"""
 
-def preprocess_dataset(raw_dataset_dir, model_name) -> DatasetDict | Dataset:
+def preprocess_dataset(raw_dataset_dir, model_name) -> tuple[DatasetDict | Dataset, DatasetDict | Dataset]:
     dataset_dir = create_preprocessed_dataset_dir(raw_dataset_dir=raw_dataset_dir)
 
     raw_dataset_dir = Path(raw_dataset_dir)
@@ -22,9 +22,10 @@ def preprocess_dataset(raw_dataset_dir, model_name) -> DatasetDict | Dataset:
     to_multi_hot(dataset_dir = dataset_dir)
     tokenize_text(dataset_dir = dataset_dir, model_name=model_name)
 
-    tokenized_ds = load_from_disk(str(dataset_dir))
+    tokenized_ds_training = load_from_disk(str(dataset_dir))
+    tokenized_ds_export = load_from_disk(str(dataset_dir))
 
-    return tokenized_ds
+    return tokenized_ds_training, tokenized_ds_export
 
 # Loads and validates that dataset_dir is a proper Hugging Face DatasetDict containing a "train" split.
 def _load_valid_dataset_dict(dataset_dir):

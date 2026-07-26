@@ -36,17 +36,19 @@ class SoftTargetExporter:
         return torch.tensor(encoded_batch, dtype=torch.uint8)
 
     @staticmethod
-    def export_all_splits(model: torch.nn.Module, dataloaders: dict, config: ModelConfig) -> None:
-        for split_name, dataloader in dataloaders.items():
-            SoftTargetExporter.export(model, dataloader, config, split_name)
+    def export_all_splits(model: torch.nn.Module, dataloaders_inference: dict, dataloaders_export: dict, config: ModelConfig) -> None:
+        for split_name, dataloader_inference in dataloaders_inference.items():
+            SoftTargetExporter.export(model, dataloader_inference, dataloader_inference, config, split_name)
 
     # Main method executing inference on a split and saving model predictions to disk.
+    # TODO:Since teacher might be using different tokenizer we use dataloader_inference to get the teacher logits and 
+    # dataloader_export to get the rest of the columns for export.
     @staticmethod
     @torch.no_grad()
-    def export(model: torch.nn.Module, dataloader: DataLoader, config: ModelConfig, split_name: str) -> None:
-        dataloader = SoftTargetExporter._as_in_order_loader(dataloader)
+    def export(model: torch.nn.Module, dataloader_inference: DataLoader, dataloader_export: DataLoader, config: ModelConfig, split_name: str) -> None:
+        dataloader_inference = SoftTargetExporter._as_in_order_loader(dataloader_inference)
 
-        if len(dataloader) == 0:
+        if len(dataloader_inference) == 0:
             raise ValueError(f"Cannot export soft targets for empty split: {split_name}")
         
         model.eval() 
@@ -57,7 +59,7 @@ class SoftTargetExporter:
 
         logger.info(f"Extracting soft labels for task: {config.task_name}_{config.unique_id_for_dir}, split: {split_name}")
         
-        for batch in tqdm(dataloader, desc=f"Exporting {split_name}"):
+        for batch in tqdm(dataloader_inference, desc=f"Exporting {split_name}"):
             input_ids = batch["input_ids"].to(device)
             attention_mask = batch["attention_mask"].to(device)
             token_type_ids = batch.get("token_type_ids")
@@ -70,7 +72,7 @@ class SoftTargetExporter:
             if not isinstance(sample_idx, torch.Tensor):
                 sample_idx = torch.tensor(sample_idx, dtype=torch.int64)
 
-            # 2. Safely parse task (encode string list into uint8 byte tensor)
+            # 2. Safely parse task 
             task_val = batch["task"]
             if isinstance(task_val, (list, tuple)):
                 task_tensor = SoftTargetExporter._encode_string_list(list(task_val))
@@ -116,7 +118,7 @@ class SoftTargetExporter:
         
         # Structural Sanity Assertions
         assert final_logits.shape[0] == final_input_ids.shape[0], "Batch size mismatch between logits and input_ids"
-        assert final_logits.shape[0] == len(dataloader.dataset), "Sample count mismatch in output"                  # type: ignore
+        assert final_logits.shape[0] == len(dataloader_inference.dataset), "Sample count mismatch in output"                  # type: ignore
         assert final_logits.shape[1] == config.num_labels, "Logit dimension mismatch with label count"
         assert final_sample_index.shape[0] == final_logits.shape[0], "Sample index count mismatch with logits"
         assert final_task.shape[0] == final_logits.shape[0], "Task count mismatch with logits"

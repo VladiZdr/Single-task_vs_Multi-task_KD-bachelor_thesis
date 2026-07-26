@@ -137,7 +137,7 @@ def sample_percent_dataset_for_testing(dataset: DatasetDict | Dataset, percent_o
 """---------------------------------------------------------Methods for dataloading---------------------------------------------------------------------------"""
 
 # Prepares the dataset by loading the raw data and preprocessing it.
-def prep_dataset_from_raw(task_config: ModelConfig) -> DatasetDict | Dataset:
+def prep_dataset_from_raw(task_config: ModelConfig) -> tuple[DatasetDict | Dataset, DatasetDict | Dataset]:
     dataset_name = task_config.task_name 
     seed = task_config.seed
     percent_of_data= task_config.percent_of_data
@@ -169,9 +169,9 @@ def prep_dataset_from_raw(task_config: ModelConfig) -> DatasetDict | Dataset:
     raw.save_to_disk(str(staging_dataset_dir))
 
     try:
-        processed = preprocess_dataset(raw_dataset_dir=staging_dataset_dir, model_name=task_config.model_name_or_path)
-        processed.save_to_disk(str(path_preprocessed))
-        return processed
+        processed_training, preprocessed_export = preprocess_dataset(raw_dataset_dir=staging_dataset_dir, model_name=task_config.model_name_or_path)
+        processed_training.save_to_disk(str(path_preprocessed))
+        return processed_training, preprocessed_export
     finally:
         if staging_dataset_dir.exists():
             shutil.rmtree(staging_dataset_dir)

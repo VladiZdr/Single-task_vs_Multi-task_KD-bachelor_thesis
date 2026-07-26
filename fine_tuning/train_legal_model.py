@@ -37,27 +37,31 @@ def seed_worker(worker_id: int) -> None:
     np.random.seed(worker_seed)
     random.seed(worker_seed)
 
-def prepare_dataloaders(task_config: ModelConfig) -> tuple[DataLoader, DataLoader, DataLoader, DataLoader]:
+def prepare_dataloaders(task_config: ModelConfig) -> tuple[DataLoader, DataLoader, DataLoader, DataLoader, dict]:
     set_all_seeds(task_config.seed)
     
     # Load tokenized dataset from disk or raw
     if task_config.preprocessed_data_dir == "raw":
-        preprocessed = prep_dataset_from_raw(task_config)
+        preprocessed_training, preprocessed_for_export = prep_dataset_from_raw(task_config)
     else:
-        preprocessed = smart_load_dataset(task_config)
-        
+        preprocessed_training = smart_load_dataset(task_config)
+        preprocessed_for_export = preprocessed_training
 
-    if isinstance(preprocessed, DatasetDict):
-        train_dataset = preprocessed["train"]
-        val_dataset = preprocessed["validation"]
-        test_dataset = preprocessed["test"]
-    elif isinstance(preprocessed, HFDataset):
+    if isinstance(preprocessed_training, DatasetDict):
+        train_dataset = preprocessed_training["train"]
+        val_dataset = preprocessed_training["validation"]
+        test_dataset = preprocessed_training["test"]
+
+        train_dataset_for_export = preprocessed_for_export["train"]
+        val_dataset_for_export = preprocessed_for_export["validation"]
+        test_dataset_for_export = preprocessed_for_export["test"]
+    elif isinstance(preprocessed_training, HFDataset):
         raise ValueError(
             f"prep_dataset('{task_config.task_name}') returned a single Dataset, "
             "but this pipeline expects a DatasetDict with train/validation/test splits."
         )
     else:
-        raise TypeError(f"Unexpected dataset type: {type(preprocessed)}")
+        raise TypeError(f"Unexpected dataset type: {type(preprocessed_training)}")
 
     # Force Torch formatting
     cols = ["input_ids", "attention_mask", "token_type_ids", "labels", "task", "sample_index"]
@@ -77,9 +81,14 @@ def prepare_dataloaders(task_config: ModelConfig) -> tuple[DataLoader, DataLoade
     val_loader = DataLoader(val_dataset, batch_size=task_config.batch_size, shuffle=False)    # type: ignore
     test_loader = DataLoader(test_dataset, batch_size=task_config.batch_size, shuffle=False)  # type: ignore
     # Create train dataloader used for unshuffled export
-    export_train_loader = DataLoader(train_dataset, batch_size=task_config.batch_size, shuffle=False)    # type: ignore
+    unshuffled_train_loader = DataLoader(train_dataset, batch_size=task_config.batch_size, shuffle=False)    # type: ignore
 
-    return train_loader, val_loader, test_loader, export_train_loader
+    train_loader_export = DataLoader(train_dataset, batch_size=task_config.batch_size, shuffle=False)    # type: ignore
+    val_loader_export = DataLoader(val_dataset, batch_size=task_config.batch_size, shuffle=False)        # type: ignore
+    test_loader_export = DataLoader(test_dataset, batch_size=task_config.batch_size, shuffle=False)      # type: ignore
+    dataloaders_for_export = {"train": train_loader_export, "validation": val_loader_export, "test": test_loader_export}
+
+    return train_loader, val_loader, test_loader, unshuffled_train_loader, dataloaders_for_export
 
 def run_task_pipeline(task_config: ModelConfig) -> None:
     logger.info(
@@ -92,7 +101,7 @@ def run_task_pipeline(task_config: ModelConfig) -> None:
         logger.info(f"Skipping task {task_config.task_name} because epochs=0.")
         return
 
-    train_loader, val_loader, test_loader, export_train_loader = prepare_dataloaders(task_config=task_config)
+    train_loader, val_loader, test_loader, unshuffled_train_loader, dataloaders_for_export = prepare_dataloaders(task_config=task_config)
 
     # Build Legal-BERT with classification layer
     model = LegalModel(task_config)
@@ -109,7 +118,10 @@ def run_task_pipeline(task_config: ModelConfig) -> None:
     model.load_state_dict(torch.load(best_weights_path, map_location=torch.device(task_config.device)))
 
     # Export predictions for downstream knowledge distillation
-    SoftTargetExporter.export_all_splits(model, {"train": export_train_loader, "validation": val_loader, "test": test_loader}, task_config)
+    SoftTargetExporter.export_all_splits(model, 
+                                         dataloaders_inference={"train": unshuffled_train_loader, "validation": val_loader, "test": test_loader},
+                                         dataloaders_export = dataloaders_for_export,
+                                         config= task_config)
     logger.info(f"Task pipeline for {task_config.task_name}_{task_config.unique_id_for_dir} successfully executed.\n" + "="*160)
 
 testers = [

@@ -40,7 +40,7 @@ def _load_split_dataloaders(task_config: ModelConfig) -> Dict[str, DataLoader]:
     set_all_seeds(task_config.seed)
 
     if task_config.preprocessed_data_dir == "raw":
-        preprocessed = prep_dataset_from_raw(task_config)
+        preprocessed, _ = prep_dataset_from_raw(task_config)
     else:
         preprocessed = smart_load_dataset(task_config)
 

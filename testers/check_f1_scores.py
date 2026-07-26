@@ -293,7 +293,7 @@ def evaluate_model(param_config: ModelConfig) -> Dict[str, Any]:
     if not os.path.exists(checkpoint_path):
         raise FileNotFoundError(f"Missing checkpoint for {current_config.task_name}_{current_config.unique_id_for_dir}: {checkpoint_path}")
 
-    train_loader, val_loader, test_loader, _ = prepare_dataloaders(task_config=current_config)
+    train_loader, val_loader, test_loader, _ , _= prepare_dataloaders(task_config=current_config)
     assert len(train_loader) > 0, "Train loader should not be empty"
     assert len(val_loader) > 0, "Validation loader should not be empty"
     assert len(test_loader) > 0, "Test loader should not be empty"
