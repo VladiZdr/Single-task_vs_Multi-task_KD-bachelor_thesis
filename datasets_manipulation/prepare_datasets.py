@@ -4,15 +4,7 @@ import argparse
 from pathlib import Path
 from datasets import Dataset, DatasetDict
 from datasets_manipulation.raw_loader import load_dataset_raw
-from datasets_manipulation.preprocess_dataset import (
-    TOKENIZER_FIELD_NAMES,
-    get_available_tokenizer_view_columns,
-    get_tokenizer_column_name,
-    get_tokenizer_view_columns,
-    get_tokenizer_view_for_model,
-    preprocess_dataset,
-    _load_valid_dataset_dict,
-)
+from datasets_manipulation.preprocess_dataset import preprocess_dataset, _load_valid_dataset_dict
 from safetensors.torch import load_file
 import numpy as np
 from sklearn.model_selection import train_test_split
@@ -20,7 +12,7 @@ from configs.model_config import ModelConfig
 
 
 """--------------------------------------------Helper Methods for sampling for low resource experiments----------------------------------------------------
---------------These functions create realistic low-resource training scenarios while maintaining target label distributions via stratification.-----------"""
+------------------These functions create low-resource training scenarios while maintaining target label distributions via stratification.-----------------"""
 
 def _get_label_column(dataset: Dataset) -> str:
     if "labels" in dataset.column_names:
@@ -124,7 +116,7 @@ def sample_low_resource_dataset(dataset: DatasetDict, dataset_name: str, low_res
     return _sample_low_resource_train_split(dataset, dataset_name, low_resource_percent, seed)
 
 
-"""---------------------------------------------------Helper Method for cutting debuging data--------------------------------------------------------------------"""
+"""---------------------------------------------------Helper Methods for cutting data for testing--------------------------------------------------------------------"""
 
 # Truncates all splits (train, val, test) to a small fraction for fast testing (not used in final models).
 def sample_percent_dataset_for_testing(dataset: DatasetDict | Dataset, percent_of_data: int) -> DatasetDict | Dataset:
@@ -141,80 +133,6 @@ def sample_percent_dataset_for_testing(dataset: DatasetDict | Dataset, percent_o
         return DatasetDict({split_name: sample_split(split) for split_name, split in dataset.items()})
 
     return sample_split(dataset)
-
-
-"""--------------------------------------------------------Tokenizer compatibility helpers-----------------------------------------------------------------------------
--------------When running models with dual-view tokenized datasets, PyTorch expects primary inputs under input_ids, attention_mask, and token_type_ids---------. 
--------------------------------These functions swap the active columns based on the model currently being executed.-----------------------------------------------"""
-
-#(e.g., google_bert__input_ids -> input_ids)
-def _align_split_tokenization(split: Dataset, model_name_or_path: str) -> Dataset:
-    """Looks up the requested model's view prefix and maps those prefixed columns back to standard names"""
-    view_name = get_tokenizer_view_for_model(model_name_or_path)
-    view_columns = get_tokenizer_view_columns(view_name)
-
-    if not all(column in split.column_names for column in view_columns):
-        if {"input_ids", "attention_mask"} <= set(split.column_names):
-            return split
-
-        raise ValueError(
-            f"Dataset split is missing tokenizer columns for model {model_name_or_path!r}: "
-            f"expected {view_columns}, got {split.column_names}"
-        )
-
-    def copy_view(batch: dict[str, list]) -> dict[str, list]:
-        aligned: dict[str, list] = {}
-        for field_name in TOKENIZER_FIELD_NAMES:
-            source_column = get_tokenizer_column_name(view_name, field_name)
-            if source_column in batch:
-                aligned[field_name] = batch[source_column]
-        return aligned
-
-    return split.map(copy_view, batched=True, keep_in_memory=True)
-
-def align_dataset_tokenization(dataset: DatasetDict | Dataset, model_name_or_path: str) -> DatasetDict | Dataset:
-    """
-    Overwrites standard input columns (input_ids, attention_mask, etc.) with values
-    from the target model's tokenizer view while keeping all view columns intact.
-    """
-    view_name = get_tokenizer_view_for_model(model_name_or_path)
-
-    def _align_split(split: Dataset) -> Dataset:
-        for field in TOKENIZER_FIELD_NAMES:  # e.g., ["input_ids", "attention_mask", "token_type_ids"]
-            view_col = get_tokenizer_column_name(view_name, field) # e.g., "legal_bert__input_ids"
-            
-            if view_col in split.column_names:
-                # 1. Drop existing standard column if present to avoid overwrite conflicts
-                if field in split.column_names:
-                    split = split.remove_columns(field)
-                # 2. Re-add standard column populated with the active view's data
-                split = split.add_column(field, split[view_col])
-                
-        return split
-
-    return DatasetDict({
-        split_name: _align_split(split_ds)
-        for split_name, split_ds in dataset.items()  #type: ignore
-    })
-
-# Return the torch-formatted columns we want to expose to the dataloaders.
-# Keeps the active tokenizer view as standard columns and preserves any extra tokenizer views for later export.
-def get_torch_columns_for_split( split: Dataset, *, include_task: bool = False, include_logits: bool = False, ) -> list[str]:
-    columns: list[str] = []
-
-    for column_name in ("input_ids", "attention_mask", "token_type_ids", "labels"):
-        if column_name in split.column_names:
-            columns.append(column_name)
-
-    if include_logits and "logits" in split.column_names:
-        columns.append("logits")
-
-    if include_task and "task" in split.column_names:
-        columns.append("task")
-
-    columns.extend(get_available_tokenizer_view_columns(split.column_names))
-    return columns
-
 
 """---------------------------------------------------------Methods for dataloading---------------------------------------------------------------------------"""
 
@@ -250,7 +168,6 @@ def prep_dataset_from_raw(task_config: ModelConfig) -> DatasetDict | Dataset:
 
     raw.save_to_disk(str(staging_dataset_dir))
 
-    # Runs dual-view tokenization preprocessing on staging copies
     try:
         processed = preprocess_dataset(raw_dataset_dir=staging_dataset_dir, model_name=task_config.model_name_or_path)
         processed.save_to_disk(str(path_preprocessed))
@@ -300,8 +217,6 @@ def smart_load_dataset(task_config: ModelConfig) -> DatasetDict:
         # Fall back to standard Hugging Face loading
         preprocessed = _load_valid_dataset_dict(data_dir)
 
-    # Aligns tokenization columns for the target model.
-    preprocessed = align_dataset_tokenization(preprocessed, task_config.model_name_or_path)
     
     # Cut data
     preprocessed = sample_percent_dataset_for_testing(preprocessed, task_config.percent_of_data)

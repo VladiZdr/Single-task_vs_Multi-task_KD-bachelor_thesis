@@ -7,13 +7,6 @@ from safetensors import safe_open
 from safetensors.torch import save_file
 from tqdm import tqdm
 from configs.model_config import ModelConfig
-from datasets_manipulation.preprocess_dataset import (
-    TOKENIZER_FIELD_NAMES,
-    TOKENIZER_VIEWS,
-    get_available_tokenizer_view_columns,
-    get_tokenizer_column_name,
-    get_tokenizer_view_for_model,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -83,11 +76,6 @@ class SoftTargetExporter:
             tensor_buffers["probabilities"].append(probs.cpu())
             tensor_buffers["labels"].append(labels.cpu())
 
-            # Collect secondary view columns if explicitly present in batch
-            for column_name in get_available_tokenizer_view_columns(list(batch.keys())):
-                column_value = batch[column_name]
-                if isinstance(column_value, torch.Tensor):
-                    tensor_buffers[column_name].append(column_value.cpu())
             
         payload = {
             column_name: torch.cat(tensors, dim=0).contiguous()
@@ -95,21 +83,6 @@ class SoftTargetExporter:
             if tensors
         }
 
-        # -------------------------------------------------------------------------
-        # GUARANTEE ACTIVE TOKENIZER VIEW COLUMNS ARE PRESENT IN PAYLOAD
-        # -------------------------------------------------------------------------
-        active_tokenizer_view = get_tokenizer_view_for_model(config.model_name_or_path)
-    
-        # Use .clone() to avoid memory sharing across keys in safetensors
-        if f"{active_tokenizer_view}__input_ids" not in payload:
-            payload[f"{active_tokenizer_view}__input_ids"] = payload["input_ids"].clone()
-
-        if f"{active_tokenizer_view}__attention_mask" not in payload:
-            payload[f"{active_tokenizer_view}__attention_mask"] = payload["attention_mask"].clone()
-
-        if "token_type_ids" in payload and f"{active_tokenizer_view}__token_type_ids" not in payload:
-            payload[f"{active_tokenizer_view}__token_type_ids"] = payload["token_type_ids"].clone()
-        # -------------------------------------------------------------------------
 
         final_input_ids = payload["input_ids"]
         final_attention_masks = payload["attention_mask"]
@@ -123,20 +96,24 @@ class SoftTargetExporter:
         assert final_logits.shape[0] == len(dataloader.dataset), "Sample count mismatch in output"                  # type: ignore
         assert final_logits.shape[1] == config.num_labels, "Logit dimension mismatch with label count"
 
-        # Derive tokenizer views present in payload (after mirroring active view)
-        tokenizer_views = sorted({column_name.split("__", 1)[0] for column_name in payload if "__" in column_name})
-        unknown_views = [view_name for view_name in tokenizer_views if view_name not in TOKENIZER_VIEWS]
-        if unknown_views:
-            raise AssertionError(f"Unexpected tokenizer view columns in export: {unknown_views}")
-
+        # Prepare SafeTensors state dictionary payload 
+        # (tensor is considered contiguous when its dimensions match the actual physical layout of the memory cells)
+        payload = {
+            "input_ids": final_input_ids.contiguous(), # scan our tensor, allocate a brand-new, unbroken block of memory, and copy the data into it sequentially
+            "attention_mask": final_attention_masks.contiguous(),
+            "logits": final_logits.contiguous(),
+            "probabilities": final_probs.contiguous(),
+            "labels": final_labels.contiguous()
+        }
+        if final_token_type_ids is not None:
+            payload["token_type_ids"] = final_token_type_ids.contiguous()
+        
         metadata = {
             "task_name": config.task_name,
             "problem_type": config.problem_type,
             "split": split_name,
             "num_samples": str(final_logits.shape[0]),
-            "num_classes": str(config.num_labels),
-            "active_tokenizer_view": active_tokenizer_view,
-            "tokenizer_views": ",".join(tokenizer_views),
+            "num_classes": str(config.num_labels)
         }
         
         export_path = os.path.join(config.output_dir, f"teacher_{split_name}_outputs.safetensors")
@@ -183,7 +160,6 @@ class SoftTargetExporter:
             # Parses metadata values 
             expected_task = metadata.get("task_name")
             problem_type = metadata.get("problem_type")
-            active_tokenizer_view = metadata.get("active_tokenizer_view")
             num_samples = int(metadata.get("num_samples", tensors["logits"].shape[0]))
             num_classes = int(metadata.get("num_classes", tensors["logits"].shape[1]))
 
@@ -194,53 +170,9 @@ class SoftTargetExporter:
                     f"Split '{split_name}' in '{directory_path}' is missing required columns: {sorted(missing_columns)}"
                 )
 
-            # Extracts tokenizer views and validates that:
-            # 1.The active tokenizer view in metadata is valid.
-            # 2.No unknown views exist.         
-            # 3.At least one tokenizer view column set is present.
-            tokenizer_views = sorted({column_name.split("__", 1)[0] for column_name in actual_columns if "__" in column_name})
-            expected_active_view = active_tokenizer_view if active_tokenizer_view in TOKENIZER_VIEWS else None
-            if expected_active_view is None:
-                raise AssertionError(
-                    f"Split '{split_name}' metadata is missing a valid active_tokenizer_view: {active_tokenizer_view!r}"
-                )
-            unknown_views = [view_name for view_name in tokenizer_views if view_name not in TOKENIZER_VIEWS]
-            if unknown_views:
-                raise AssertionError(
-                    f"Split '{split_name}' in '{directory_path}' contains unexpected tokenizer views: {unknown_views}"
-                )
-            if not tokenizer_views:
-                raise AssertionError(
-                    f"Split '{split_name}' in '{directory_path}' does not contain any prefixed tokenizer views."
-                )
-
-            # Validates that metadata view strings match tensor keys and checks that mandatory tokenizer field names exist for each expected view.
-            metadata_views = [view_name for view_name in (metadata.get("tokenizer_views") or "").split(",") if view_name]
-            if metadata_views and sorted(metadata_views) != tokenizer_views:
-                raise AssertionError(
-                    f"Split '{split_name}' metadata tokenizer views do not match the exported columns: "
-                    f"{metadata_views} vs {tokenizer_views}"
-                )
-            for view_name in TOKENIZER_VIEWS:
-                view_columns = [get_tokenizer_column_name(view_name, field_name) for field_name in TOKENIZER_FIELD_NAMES]
-                missing_view_columns = [column_name for column_name in view_columns if column_name not in actual_columns]
-                if missing_view_columns:
-                    raise AssertionError(
-                        f"Split '{split_name}' is missing tokenizer columns for view '{view_name}': "
-                        f"{missing_view_columns}"
-                    )
-
             # Prints diagnostic output showing which expected/optional columns are present.
             print("\n[1] Column Presence Verification:")
-            for col in sorted(
-                SoftTargetExporter.REQUIRED_COLUMNS
-                | SoftTargetExporter.OPTIONAL_COLUMNS
-                | {
-                    get_tokenizer_column_name(view_name, field_name)
-                    for view_name in TOKENIZER_VIEWS
-                    for field_name in TOKENIZER_FIELD_NAMES
-                }
-            ):
+            for col in sorted(SoftTargetExporter.REQUIRED_COLUMNS | SoftTargetExporter.OPTIONAL_COLUMNS):
                 present = col in actual_columns
                 status = "PRESENT" if present else "MISSING"
                 print(f"  - {col:<16}: {status}")
@@ -287,8 +219,6 @@ class SoftTargetExporter:
             print("\n[3] Pipeline Integrity Checks:")
             print(f"  ✓ Split '{split_name}' contains {num_samples} records and {num_classes} classes.")
             print(f"  ✓ Metadata task: {expected_task}, problem type: {problem_type}")
-
-            print(f"  Tokenizer views: {', '.join(tokenizer_views)}")
 
             idx = 0
             raw_tokens = tensors["input_ids"][idx].tolist()

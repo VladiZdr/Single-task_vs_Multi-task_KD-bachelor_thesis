@@ -2,15 +2,12 @@ from testers.check_f1_scores import check_all_f1_scores
 from testers.check_teacher_outputs import check_all_exports
 from testers.check_kd_loss_fun import main as check_all_kd_loss_functions
 from testers.test_multi_task import main as check_all_multi_task
-from testers.test_tokenizer_views import run_all_tokenizer_tests
 
 if __name__ == "__main__":
     print("\nStarting KD loss function checks...")
     check_all_kd_loss_functions()
-    print("Starting tokenizer checks...")
-    run_all_tokenizer_tests()
     print("\nStarting multi-task checks...")
-    #check_all_multi_task()
+    check_all_multi_task()
     print("\nStarting teacher output export checks...")
     check_all_exports()
     print("Starting F1 score checks...")
