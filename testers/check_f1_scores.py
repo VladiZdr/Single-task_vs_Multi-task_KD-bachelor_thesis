@@ -10,7 +10,7 @@ if __package__ in (None, ""):
 import numpy as np
 import torch
 from sklearn.metrics import precision_recall_fscore_support
-from configs.model_config import ModelConfig
+from configs.model_config import ModelConfig, MultiTaskModelConfig
 from fine_tuning.legal_model import LegalModel
 from fine_tuning.legal_model_trainer import LegalModelTrainer
 from fine_tuning.train_legal_model import prepare_dataloaders, models_to_run as single_task_models_to_run
@@ -317,7 +317,7 @@ def evaluate_model(param_config: ModelConfig) -> Dict[str, Any]:
 
 
 @torch.no_grad()
-def evaluate_multi_task_model(param_model: MultiTaskModel) -> Dict[str, Any]:
+def evaluate_multi_task_model(param_model: MultiTaskModelConfig) -> Dict[str, Any]:
     current_model = param_model
     checkpoint_path = os.path.join("./datasets_store/checkpoints", current_model.unique_id_for_dir, "best_multi_task_model.pt")
 
@@ -337,8 +337,9 @@ def evaluate_multi_task_model(param_model: MultiTaskModel) -> Dict[str, Any]:
     assert len(test_loaders["ledgar"]) > 0, "LEDGAR test loader should not be empty"
     assert len(test_loaders["unfair_tos"]) > 0, "UNFAIR-ToS test loader should not be empty"
 
-    trainer = MultiTaskTrainer(current_model, current_model.ledgar_config, current_model.unfair_tos_config)
-    current_model.load_state_dict(torch.load(checkpoint_path, map_location=torch.device(trainer.device)))
+    model = MultiTaskModel(current_model.ledgar_config, current_model.unfair_tos_config, unique_id_for_dir="check_f1_multi")
+    trainer = MultiTaskTrainer(model, current_model.ledgar_config, current_model.unfair_tos_config)
+    model.load_state_dict(torch.load(checkpoint_path, map_location=torch.device(trainer.device)))
     trainer._remove_teacher_weight_for_evaluation()
     metrics = trainer.evaluate(val_loaders)
     

@@ -543,7 +543,7 @@ def test_multitask_trainer_train_epoch_rejects_empty_inputs():
     with expect_raises(ValueError, "Cannot train with no dataloaders"):
         trainer.train_epoch({}, optimizer, DummyScheduler())
 
-    with expect_raises(ValueError, "No batches were processed during multi-task training"):
+    with expect_raises(ValueError, "Cannot train with no valid dataloaders"):
         trainer.train_epoch({"ledgar": FakeLoader([])}, optimizer, DummyScheduler())  #type: ignore
 
 
