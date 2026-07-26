@@ -8,8 +8,12 @@ from datasets_manipulation.export_teacher_outputs import SoftTargetExporter
 from safetensors import safe_open
 from fine_tuning.train_legal_model import models_to_run
 
+# Class attributes listing tensor keys that every exported file contains.
+REQUIRED_COLUMNS = {"input_ids", "attention_mask", "logits", "probabilities", "labels", "task", "sample_index"}
+OPTIONAL_COLUMNS = {"token_type_ids"}
+
 @staticmethod
-def verify_exports(directory_path: str) -> dict[str, dict[str, object]]:
+def verify_exports(directory_path: str, model) -> dict[str, dict[str, object]]:
     """
     Scans the outputs folder, loads each generated SafeTensors split,
     checks that all mandatory columns are present, and validates that the
@@ -52,7 +56,7 @@ def verify_exports(directory_path: str) -> dict[str, dict[str, object]]:
         num_classes = int(metadata.get("num_classes", tensors["logits"].shape[1]))
 
         actual_columns = set(tensors.keys())
-        missing_columns = SoftTargetExporter.REQUIRED_COLUMNS - actual_columns
+        missing_columns = REQUIRED_COLUMNS - actual_columns
         if missing_columns:
             raise AssertionError(
                 f"Split '{split_name}' in '{directory_path}' is missing required columns: {sorted(missing_columns)}"
@@ -60,7 +64,7 @@ def verify_exports(directory_path: str) -> dict[str, dict[str, object]]:
 
         # Prints diagnostic output showing which expected/optional columns are present.
         print("\n[1] Column Presence Verification:")
-        for col in sorted(SoftTargetExporter.REQUIRED_COLUMNS | SoftTargetExporter.OPTIONAL_COLUMNS):
+        for col in sorted(REQUIRED_COLUMNS | OPTIONAL_COLUMNS):
             present = col in actual_columns
             status = "PRESENT" if present else "MISSING"
             print(f"  - {col:<16}: {status}")
@@ -83,9 +87,21 @@ def verify_exports(directory_path: str) -> dict[str, dict[str, object]]:
         assert tensors["logits"].shape[0] == num_samples, "Metadata sample count does not match logits"
         assert tensors["logits"].shape[1] == num_classes, "Metadata class count does not match logits"
 
-        for key in SoftTargetExporter.REQUIRED_COLUMNS:
+        for key in REQUIRED_COLUMNS:
             assert tensors[key].shape[0] == num_samples, f"Batch size mismatch on column: {key}!"
 
+        # 1. Verify index sequence: sample_index must be strictly 0, 1, 2, ..., N-1
+        if model.low_resource_percent == 100:
+            sample_indices = tensors["sample_index"].to(torch.int64)
+            expected_indices = torch.arange(num_samples, dtype=torch.int64)
+            
+            assert torch.equal(sample_indices, expected_indices), (
+                f"ORDER FAILURE: Split '{split_name}' has been shuffled or exported out of order! "
+                f"Expected sample_index 0..{num_samples-1}, but found non-sequential indices."
+            )
+            print(f"  ✓ Row order verified: 'sample_index' is strictly sequential (0 to {num_samples - 1}).")
+
+        # 2. Probability consistency
         if problem_type == "multi_label":
             expected_probs = torch.sigmoid(tensors["logits"])
             assert tensors["labels"].shape == tensors["logits"].shape, "Multi-label exports must store dense label vectors"
@@ -133,7 +149,7 @@ def verify_exports(directory_path: str) -> dict[str, dict[str, object]]:
 def check_all_exports() -> None:
     for model in models_to_run:
         print(f"\n[{model.task_name}]")
-        summary = verify_exports(directory_path=model.output_dir)
+        summary = verify_exports(directory_path=model.output_dir, model = model)
         assert set(summary) == {"train", "validation", "test"}, f"{model.task_name} did not contain all three splits"
         for split_name, split_summary in summary.items():
             assert split_summary["num_samples"] > 0, f"{model.task_name} split '{split_name}' is empty"                           #type: ignore

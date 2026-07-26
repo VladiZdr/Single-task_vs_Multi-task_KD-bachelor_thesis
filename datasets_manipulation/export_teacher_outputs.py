@@ -10,9 +10,7 @@ from configs.model_config import ModelConfig
 logger = logging.getLogger(__name__)
 
 class SoftTargetExporter:
-    # Class attributes listing tensor keys that every exported file contains.
-    REQUIRED_COLUMNS = {"input_ids", "attention_mask", "logits", "probabilities", "labels"}
-    OPTIONAL_COLUMNS = {"token_type_ids"}
+
 
     # Ensures exported outputs remain aligned index-for-index with the original dataset.
     @staticmethod
@@ -28,6 +26,16 @@ class SoftTargetExporter:
         )
 
     @staticmethod
+    def _encode_string_list(str_list: list[str], max_len: int = 32) -> torch.Tensor:
+        """Encodes a list of string task names into a fixed-length uint8 PyTorch tensor for SafeTensors compatibility."""
+        encoded_batch = []
+        for s in str_list:
+            b = str(s).encode("utf-8")[:max_len]
+            padded = list(b) + [0] * (max_len - len(b))
+            encoded_batch.append(padded)
+        return torch.tensor(encoded_batch, dtype=torch.uint8)
+
+    @staticmethod
     def export_all_splits(model: torch.nn.Module, dataloaders: dict, config: ModelConfig) -> None:
         for split_name, dataloader in dataloaders.items():
             SoftTargetExporter.export(model, dataloader, config, split_name)
@@ -41,7 +49,7 @@ class SoftTargetExporter:
         if len(dataloader) == 0:
             raise ValueError(f"Cannot export soft targets for empty split: {split_name}")
         
-        model.eval() # turn off dropout and other evaluation-specific layers
+        model.eval() 
         device = torch.device(config.device)
         model.to(device)
 
@@ -56,6 +64,20 @@ class SoftTargetExporter:
             if token_type_ids is not None:
                 token_type_ids = token_type_ids.to(device)
             labels = batch["labels"]
+            
+            # 1. Safely parse sample_index (convert to int64 Tensor if it's a Python list)
+            sample_idx = batch["sample_index"]
+            if not isinstance(sample_idx, torch.Tensor):
+                sample_idx = torch.tensor(sample_idx, dtype=torch.int64)
+
+            # 2. Safely parse task (encode string list into uint8 byte tensor)
+            task_val = batch["task"]
+            if isinstance(task_val, (list, tuple)):
+                task_tensor = SoftTargetExporter._encode_string_list(list(task_val))
+            elif isinstance(task_val, torch.Tensor):
+                task_tensor = task_val.cpu()
+            else:
+                task_tensor = SoftTargetExporter._encode_string_list([str(task_val)] * input_ids.shape[0])
             
             # Forward pass to get logits
             logits = model(input_ids, attention_mask, token_type_ids)
@@ -74,14 +96,14 @@ class SoftTargetExporter:
             tensor_buffers["logits"].append(logits.cpu())
             tensor_buffers["probabilities"].append(probs.cpu())
             tensor_buffers["labels"].append(labels.cpu())
+            tensor_buffers["sample_index"].append(sample_idx.cpu())
+            tensor_buffers["task"].append(task_tensor)
 
-            
         payload = {
             column_name: torch.cat(tensors, dim=0).contiguous()
             for column_name, tensors in tensor_buffers.items()
             if tensors
         }
-
 
         final_input_ids = payload["input_ids"]
         final_attention_masks = payload["attention_mask"]
@@ -89,20 +111,25 @@ class SoftTargetExporter:
         final_logits = payload["logits"]
         final_probs = payload["probabilities"]
         final_labels = payload["labels"]
+        final_sample_index = payload["sample_index"]
+        final_task = payload["task"]
         
         # Structural Sanity Assertions
         assert final_logits.shape[0] == final_input_ids.shape[0], "Batch size mismatch between logits and input_ids"
         assert final_logits.shape[0] == len(dataloader.dataset), "Sample count mismatch in output"                  # type: ignore
         assert final_logits.shape[1] == config.num_labels, "Logit dimension mismatch with label count"
+        assert final_sample_index.shape[0] == final_logits.shape[0], "Sample index count mismatch with logits"
+        assert final_task.shape[0] == final_logits.shape[0], "Task count mismatch with logits"
 
         # Prepare SafeTensors state dictionary payload 
-        # (tensor is considered contiguous when its dimensions match the actual physical layout of the memory cells)
         payload = {
-            "input_ids": final_input_ids.contiguous(), # scan our tensor, allocate a brand-new, unbroken block of memory, and copy the data into it sequentially
+            "input_ids": final_input_ids.contiguous(),
             "attention_mask": final_attention_masks.contiguous(),
             "logits": final_logits.contiguous(),
             "probabilities": final_probs.contiguous(),
-            "labels": final_labels.contiguous()
+            "labels": final_labels.contiguous(),
+            "sample_index": final_sample_index.contiguous(),
+            "task": final_task.contiguous()
         }
         if final_token_type_ids is not None:
             payload["token_type_ids"] = final_token_type_ids.contiguous()
@@ -118,4 +145,3 @@ class SoftTargetExporter:
         export_path = os.path.join(config.output_dir, f"teacher_{split_name}_outputs.safetensors")
         save_file(payload, export_path, metadata=metadata)
         logger.info(f"Successfully serialized soft targets to {export_path}")
-

@@ -431,7 +431,7 @@ def test_multitask_trainer_task_name_from_batch_handles_lists_and_rejects_invali
     with expect_raises(KeyError, "must contain a 'task' column"):
         trainer._task_name_from_batch({})
 
-    with expect_raises(ValueError, "Mixed-task batches are not supported"):
+    with expect_raises(ValueError, "Mixed-task batches are not supported: ['ledgar', 'unfair_tos']"):
         trainer._task_name_from_batch({"task": ["ledgar", "unfair_tos"]})
 
     with expect_raises(TypeError, "Expected a string task label"):

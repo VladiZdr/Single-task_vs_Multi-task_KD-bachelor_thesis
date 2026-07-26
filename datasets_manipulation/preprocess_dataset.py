@@ -16,6 +16,7 @@ def preprocess_dataset(raw_dataset_dir, model_name) -> DatasetDict | Dataset:
     dataset_name = raw_dataset_dir.name.replace("_staging", "").replace("_raw", "")
 
     add_task_marker(dataset_dir = dataset_dir, task_marker = dataset_name)
+    add_sample_index(dataset_dir = dataset_dir)
     clean_text(dataset_dir = dataset_dir)
     rename_label_to_labels(dataset_dir = dataset_dir)
     to_multi_hot(dataset_dir = dataset_dir)
@@ -155,6 +156,26 @@ def add_task_marker(dataset_dir, task_marker):
 
     return _update_dataset_dir(dataset_dir, process)
 
+def add_sample_index(dataset_dir):
+    dataset_dir = Path(dataset_dir)
+
+    def process(dataset):
+        train_dataset = cast(Dataset, dataset["train"])
+
+        # If sample_index is already present, nothing needs to be changed.
+        if "sample_index" in train_dataset.column_names:
+            return None
+
+        # The map() method with with_indices=True passes the row index (0, 1, 2, ...)
+        # for each sample in every split (train, validation, test).
+        return dataset.map(
+            lambda example, idx: {"sample_index": idx},
+            with_indices=True,
+            keep_in_memory=True,
+        )
+
+    return _update_dataset_dir(dataset_dir, process)
+
 def normalize_text(text):
     #which characters to replace with space, which to remove, and which to normalize
     text = text.replace("\xa0", " ")
@@ -242,8 +263,9 @@ def tokenize_text(dataset_dir, model_name="nlpaueb/legal-bert-base-uncased", max
             )
 
         # Remove raw text and other non-label columns after tokenization.
+        columns_to_keep = {"labels", "task", "sample_index"}
         columns_to_remove = [
-            column for column in train_dataset.column_names if column != "labels" and column != "task"
+            column for column in train_dataset.column_names if column not in columns_to_keep
         ]
 
         # Apply tokenization to every split and keep only the generated model inputs plus labels.

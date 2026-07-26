@@ -72,16 +72,43 @@ class MultiTaskTrainer:
         if task_value is None:
             raise KeyError("Multi-task batches must contain a 'task' column.")
 
-        # Ensures every single item in that batch belongs to the same task.
-        if isinstance(task_value, (list, tuple)):
-            unique_tasks = sorted(set(task_value))
+        # 1. Unpack PyTorch Tensors if batch["task"] is loaded as a tensor
+        if isinstance(task_value, torch.Tensor):
+            if task_value.dtype == torch.uint8 and task_value.ndim == 2:
+                task_value = [
+                    bytes(row[row != 0].tolist()).decode("utf-8", errors="ignore")
+                    for row in task_value
+                ]
+            elif task_value.ndim == 0:
+                task_value = task_value.item()
+            else:
+                task_value = task_value.tolist()
+
+        # 2. Process list / tuple / set containers
+        if isinstance(task_value, (list, tuple, set)):
+            extracted_tasks: list[str] = []
+            for item in task_value:
+                if isinstance(item, str):
+                    extracted_tasks.append(item)
+                elif isinstance(item, (list, tuple)):
+                    # Handle byte-list sequences, e.g., [108, 101, 100, 103, 97, 114]
+                    if item and all(isinstance(x, int) for x in item):
+                        extracted_tasks.append(bytes([x for x in item if x != 0]).decode("utf-8", errors="ignore"))
+                    else:
+                        raise TypeError(f"Expected a string task label in batch list, got {type(item)!r}")
+                else:
+                    raise TypeError(f"Expected a string task label in batch list, got {type(item)!r}")
+
+            unique_tasks = sorted(set(extracted_tasks))
             if len(unique_tasks) != 1:
                 raise ValueError(f"Mixed-task batches are not supported: {unique_tasks}")
             task_value = unique_tasks[0]
 
+        # 3. Enforce strict type checking for non-string raw values (e.g., {"task": 123})
         if not isinstance(task_value, str):
             raise TypeError(f"Expected a string task label, got {type(task_value)!r}")
 
+        # 4. Verify task exists in task_configs
         if task_value not in self.task_configs:
             raise ValueError(f"Unknown task '{task_value}'. Expected one of {sorted(self.task_configs.keys())}.")
 

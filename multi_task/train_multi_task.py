@@ -68,7 +68,7 @@ def _load_split_dataloaders(task_config: ModelConfig) -> Dict[str, DataLoader]:
     test_dataset = attach_task_column(test_dataset)
 
     # Selects the required data columns.
-    cols = ["input_ids", "attention_mask", "token_type_ids", "labels", "task"]
+    cols = ["input_ids", "attention_mask", "token_type_ids", "labels", "task", "sample_index"]
 
     if task_config.loss_type == "kldiv":
         cols.append("logits")
@@ -84,15 +84,9 @@ def _load_split_dataloaders(task_config: ModelConfig) -> Dict[str, DataLoader]:
 
     # Wraps the structured datasets into iterable PyTorch streaming objects (DataLoader). 
     # The training data is randomized using locked seed generator, while validation and testing data stream through sequentially (shuffle=False).
-    train_loader = DataLoader(
-        train_dataset,                      # type: ignore
-        batch_size=task_config.batch_size,
-        shuffle=True,
-        generator=generator,
-        worker_init_fn=seed_worker,
-    )
-    val_loader = DataLoader(val_dataset, batch_size=task_config.batch_size, shuffle=False)      # type: ignore
-    test_loader = DataLoader(test_dataset, batch_size=task_config.batch_size, shuffle=False)    # type: ignore
+    train_loader = DataLoader( train_dataset, batch_size=task_config.batch_size, shuffle=True, generator=generator, worker_init_fn=seed_worker) # type: ignore
+    val_loader = DataLoader(val_dataset, batch_size=task_config.batch_size, shuffle=False)                                                      # type: ignore
+    test_loader = DataLoader(test_dataset, batch_size=task_config.batch_size, shuffle=False)                                                    # type: ignore
 
     return {"train": train_loader, "validation": val_loader, "test": test_loader}
 

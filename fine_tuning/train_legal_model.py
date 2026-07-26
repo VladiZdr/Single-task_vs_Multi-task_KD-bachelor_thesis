@@ -37,7 +37,7 @@ def seed_worker(worker_id: int) -> None:
     np.random.seed(worker_seed)
     random.seed(worker_seed)
 
-def prepare_dataloaders(task_config: ModelConfig) -> tuple[DataLoader, DataLoader, DataLoader]:
+def prepare_dataloaders(task_config: ModelConfig) -> tuple[DataLoader, DataLoader, DataLoader, DataLoader]:
     set_all_seeds(task_config.seed)
     
     # Load tokenized dataset from disk or raw
@@ -60,9 +60,7 @@ def prepare_dataloaders(task_config: ModelConfig) -> tuple[DataLoader, DataLoade
         raise TypeError(f"Unexpected dataset type: {type(preprocessed)}")
 
     # Force Torch formatting
-    cols = ["input_ids", "attention_mask", "token_type_ids", "labels"]
-
-    # Extract teacher logits when Knowledge Distillation is active
+    cols = ["input_ids", "attention_mask", "token_type_ids", "labels", "task", "sample_index"]
     if task_config.loss_type == 'kldiv':
         cols.append("logits")
     train_dataset.set_format(type="torch", columns=cols)
@@ -78,8 +76,10 @@ def prepare_dataloaders(task_config: ModelConfig) -> tuple[DataLoader, DataLoade
     ) 
     val_loader = DataLoader(val_dataset, batch_size=task_config.batch_size, shuffle=False)    # type: ignore
     test_loader = DataLoader(test_dataset, batch_size=task_config.batch_size, shuffle=False)  # type: ignore
+    # Create train dataloader used for unshuffled export
+    export_train_loader = DataLoader(train_dataset, batch_size=task_config.batch_size, shuffle=False)    # type: ignore
 
-    return train_loader, val_loader, test_loader
+    return train_loader, val_loader, test_loader, export_train_loader
 
 def run_task_pipeline(task_config: ModelConfig) -> None:
     logger.info(
@@ -92,7 +92,7 @@ def run_task_pipeline(task_config: ModelConfig) -> None:
         logger.info(f"Skipping task {task_config.task_name} because epochs=0.")
         return
 
-    train_loader, val_loader, test_loader = prepare_dataloaders(task_config=task_config)
+    train_loader, val_loader, test_loader, export_train_loader = prepare_dataloaders(task_config=task_config)
 
     # Build Legal-BERT with classification layer
     model = LegalModel(task_config)
@@ -107,9 +107,9 @@ def run_task_pipeline(task_config: ModelConfig) -> None:
     # Reload the best performing model weights for the extraction phase
     logger.info(f"Reloading best model weights from {best_weights_path} for serialization...")
     model.load_state_dict(torch.load(best_weights_path, map_location=torch.device(task_config.device)))
-    
+
     # Export predictions for downstream knowledge distillation
-    SoftTargetExporter.export_all_splits(model, {"train": train_loader, "validation": val_loader, "test": test_loader}, task_config)
+    SoftTargetExporter.export_all_splits(model, {"train": export_train_loader, "validation": val_loader, "test": test_loader}, task_config)
     logger.info(f"Task pipeline for {task_config.task_name}_{task_config.unique_id_for_dir} successfully executed.\n" + "="*160)
 
 testers = [
