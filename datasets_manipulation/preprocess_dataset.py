@@ -7,7 +7,7 @@ from typing import cast
 from datasets import Dataset, DatasetDict, load_from_disk
 from transformers import AutoTokenizer
 
-"""----------------------------------------------Helper methods for preprocessing---------------------------------------------------------------------------"""
+"""----------------------------------------------------------------Helper methods for preprocessing---------------------------------------------------------------------------"""
 
 def preprocess_dataset(raw_dataset_dir, model_name) -> DatasetDict | Dataset:
     dataset_dir = create_preprocessed_dataset_dir(raw_dataset_dir=raw_dataset_dir)
@@ -48,7 +48,6 @@ def _load_valid_dataset_dict(dataset_dir):
         raise ValueError(f"Expected dataset to contain a train split: {dataset_dir}")
 
     return dataset
-
 
 def _update_dataset_dir(dataset_dir, process_dataset):
     dataset_dir = Path(dataset_dir)
@@ -107,7 +106,6 @@ def _update_dataset_dir(dataset_dir, process_dataset):
 
     return None
 
-
 def create_preprocessed_dataset_dir(raw_dataset_dir, output_dir=None):
     raw_dataset_dir = Path(raw_dataset_dir)
     _load_valid_dataset_dict(raw_dataset_dir)
@@ -124,7 +122,6 @@ def create_preprocessed_dataset_dir(raw_dataset_dir, output_dir=None):
 
     return output_dir
 
-
 def rename_label_to_labels(dataset_dir):
     dataset_dir = Path(dataset_dir)
 
@@ -137,7 +134,6 @@ def rename_label_to_labels(dataset_dir):
         return dataset.rename_column("label", "labels")
 
     return _update_dataset_dir(dataset_dir, process)
-
 
 def add_task_marker(dataset_dir, task_marker):
     dataset_dir = Path(dataset_dir)
@@ -159,7 +155,6 @@ def add_task_marker(dataset_dir, task_marker):
 
     return _update_dataset_dir(dataset_dir, process)
 
-
 def normalize_text(text):
     #which characters to replace with space, which to remove, and which to normalize
     text = text.replace("\xa0", " ")
@@ -168,7 +163,6 @@ def normalize_text(text):
     text = re.sub(r" *\n *", "\n", text)
     text = re.sub(r"\n{3,}", "\n\n", text)
     return text.strip()
-
 
 def clean_text(dataset_dir):
     dataset_dir = Path(dataset_dir)
@@ -183,7 +177,6 @@ def clean_text(dataset_dir):
         )
 
     return _update_dataset_dir(dataset_dir, process)
-
 
 def to_multi_hot(dataset_dir):
     dataset_dir = Path(dataset_dir)

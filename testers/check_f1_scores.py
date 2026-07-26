@@ -301,13 +301,13 @@ def evaluate_model(param_config: ModelConfig) -> Dict[str, Any]:
     model = LegalModel(current_config)
     model.load_state_dict(torch.load(checkpoint_path, map_location=torch.device(current_config.device)))
 
-    trainer = LegalModelTrainer(model, current_config)
+    trainer = LegalModelTrainer(model)
     trainer._remove_teacher_weight_for_evaluation()  # Ensure teacher weight is set to 0 for evaluation
-    metrics = trainer.evaluate(val_loader)
+    metrics = trainer.evaluate(test_loader)
     verify_metrics(metrics)
     analysis = analyze_single_task_performance_and_efficiency(
         trainer,
-        val_loader,
+        test_loader,
         current_config.task_name,
         current_config.num_labels,
     )
@@ -337,11 +337,12 @@ def evaluate_multi_task_model(param_model: MultiTaskModelConfig) -> Dict[str, An
     assert len(test_loaders["ledgar"]) > 0, "LEDGAR test loader should not be empty"
     assert len(test_loaders["unfair_tos"]) > 0, "UNFAIR-ToS test loader should not be empty"
 
-    model = MultiTaskModel(current_model.ledgar_config, current_model.unfair_tos_config, unique_id_for_dir="check_f1_multi")
-    trainer = MultiTaskTrainer(model, current_model.ledgar_config, current_model.unfair_tos_config)
+    mt_config = MultiTaskModelConfig(current_model.ledgar_config, current_model.unfair_tos_config, unique_id_for_dir="check_f1_multi")
+    model = MultiTaskModel(mt_config)
+    trainer = MultiTaskTrainer(model)
     model.load_state_dict(torch.load(checkpoint_path, map_location=torch.device(trainer.device)))
     trainer._remove_teacher_weight_for_evaluation()
-    metrics = trainer.evaluate(val_loaders)
+    metrics = trainer.evaluate(test_loaders)
     
     verify_metrics(
         metrics,
@@ -359,10 +360,10 @@ def evaluate_multi_task_model(param_model: MultiTaskModelConfig) -> Dict[str, An
     )
 
     ledgar_analysis = analyze_per_label_performance_and_efficiency(
-        trainer, val_loaders["ledgar"], "ledgar", current_model.ledgar_config.num_labels,
+        trainer, test_loaders["ledgar"], "ledgar", current_model.ledgar_config.num_labels,
     )
     unfair_tos_analysis = analyze_per_label_performance_and_efficiency(
-        trainer, val_loaders["unfair_tos"], "unfair_tos", current_model.unfair_tos_config.num_labels,
+        trainer, test_loaders["unfair_tos"], "unfair_tos", current_model.unfair_tos_config.num_labels,
     )
     print(
         f"Evaluation metrics for multi-task model {current_model.unique_id_for_dir}: {metrics}\n"

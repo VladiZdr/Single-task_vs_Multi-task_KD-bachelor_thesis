@@ -7,7 +7,7 @@ import configs.model_templates as model_config
 from datasets_manipulation.prepare_datasets import prep_dataset_from_raw, smart_load_dataset
 from fine_tuning.legal_model import LegalModel
 from fine_tuning.legal_model_trainer import LegalModelTrainer
-from fine_tuning.export_teacher_outputs import SoftTargetExporter
+from datasets_manipulation.export_teacher_outputs import SoftTargetExporter
 import torch
 import numpy as np
 import random
@@ -61,6 +61,7 @@ def prepare_dataloaders(task_config: ModelConfig) -> tuple[DataLoader, DataLoade
 
     # Force Torch formatting
     cols = ["input_ids", "attention_mask", "token_type_ids", "labels"]
+
     # Extract teacher logits when Knowledge Distillation is active
     if task_config.loss_type == 'kldiv':
         cols.append("logits")
@@ -95,7 +96,7 @@ def run_task_pipeline(task_config: ModelConfig) -> None:
 
     # Build Legal-BERT with classification layer
     model = LegalModel(task_config)
-    trainer = LegalModelTrainer(model, task_config)
+    trainer = LegalModelTrainer(model)
 
     # Train the model for specified epochs -> evaluate -> save best checkpoint
     best_weights_path = trainer.fit(train_loader, val_loader)
@@ -109,7 +110,7 @@ def run_task_pipeline(task_config: ModelConfig) -> None:
     
     # Export predictions for downstream knowledge distillation
     SoftTargetExporter.export_all_splits(model, {"train": train_loader, "validation": val_loader, "test": test_loader}, task_config)
-    logger.info(f"Task pipeline for {task_config.task_name}_{task_config.unique_id_for_dir} successfully executed.\n" + "="*80)
+    logger.info(f"Task pipeline for {task_config.task_name}_{task_config.unique_id_for_dir} successfully executed.\n" + "="*160)
 
 testers = [
     model_config.ledgar_teacher_tester,

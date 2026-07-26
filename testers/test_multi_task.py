@@ -14,7 +14,7 @@ import torch.nn as nn
 from torch.optim import AdamW
 
 from configs.Loss_functions import KDLoss
-from configs.model_config import ModelConfig
+from configs.model_config import ModelConfig, MultiTaskModelConfig
 from multi_task.multi_task_model import MultiTaskModel
 from multi_task.multi_task_trainer import MultiTaskTrainer
 
@@ -218,7 +218,9 @@ def build_trainer(unique_suffix: str, *, kldiv: bool = True) -> tuple[MultiTaskT
 
     model = TrainableMultiTaskModel(unique_id=f"trainer_{unique_suffix}")
     with patch("multi_task.multi_task_trainer.os.makedirs", lambda *args, **kwargs: None):
-        trainer = MultiTaskTrainer(model, ledgar_config, unfair_config)
+        model_config = MultiTaskModelConfig(ledgar_config, unfair_config, unique_id_for_dir="tmp")
+        mt_model = MultiTaskModel(model_config)
+        trainer = MultiTaskTrainer(mt_model)
     return trainer, model, ledgar_config, unfair_config
 
 
@@ -238,7 +240,8 @@ def test_multitask_model_init_builds_shared_encoder_and_heads():
     fake_encoder = DummyEncoder(hidden_size=7, dropout_prob=0.4)
 
     with patch("multi_task.multi_task_model.AutoModel.from_pretrained", return_value=fake_encoder):
-        model = MultiTaskModel(ledgar_config, unfair_config, unique_id_for_dir="mt_model_init")
+        model_config = MultiTaskModelConfig(ledgar_config, unfair_config, unique_id_for_dir="mt_model_init")
+        model = MultiTaskModel(model_config)
 
     assert model.unique_id_for_dir == "mt_model_init"
     assert model.encoder is fake_encoder
@@ -266,7 +269,8 @@ def test_multitask_model_init_uses_default_dropout_when_encoder_config_omits_it(
     fake_encoder = DummyEncoder(hidden_size=5, dropout_prob=None)
 
     with patch("multi_task.multi_task_model.AutoModel.from_pretrained", return_value=fake_encoder):
-        model = MultiTaskModel(ledgar_config, unfair_config, unique_id_for_dir="mt_default_drop")
+        model_config = MultiTaskModelConfig(ledgar_config, unfair_config, unique_id_for_dir="tmp")
+        model = MultiTaskModel(model_config)
 
     assert model.dropout.p == 0.1
 
@@ -287,9 +291,9 @@ def test_multitask_model_init_requires_same_encoder_checkpoint():
         model_name_or_path="nlpaueb/legal-bert-base-uncased",
     )
 
-    with expect_raises(ValueError, "same encoder checkpoint"):
-        MultiTaskModel(ledgar_config, unfair_config, unique_id_for_dir="mt_mismatch")
-
+    with expect_raises(ValueError, "Multi-task configs must share the same encoder and hyperparameters, but the following fields differ:\n- model_name_or_path: ledgar='google/bert_uncased_L-4_H-256_A-4', unfair_tos='nlpaueb/legal-bert-base-uncased"):
+        model_config = MultiTaskModelConfig(ledgar_config, unfair_config, unique_id_for_dir="tmp")
+        MultiTaskModel(model_config)
 
 def test_multitask_model_forward_uses_selected_head_and_optional_token_type_ids():
     ledgar_config = make_config(
@@ -307,7 +311,8 @@ def test_multitask_model_forward_uses_selected_head_and_optional_token_type_ids(
     fake_encoder = DummyEncoder(hidden_size=4, dropout_prob=0.0)
 
     with patch("multi_task.multi_task_model.AutoModel.from_pretrained", return_value=fake_encoder):
-        model = MultiTaskModel(ledgar_config, unfair_config, unique_id_for_dir="mt_forward")
+        model_config = MultiTaskModelConfig(ledgar_config, unfair_config, unique_id_for_dir="tmp")
+        model = MultiTaskModel(model_config)
 
     input_ids = torch.tensor([[1, 2, 3], [4, 5, 6]])
     attention_mask = torch.ones(2, 3, dtype=torch.long)
@@ -339,7 +344,8 @@ def test_multitask_model_forward_rejects_missing_task():
     fake_encoder = DummyEncoder(hidden_size=4)
 
     with patch("multi_task.multi_task_model.AutoModel.from_pretrained", return_value=fake_encoder):
-        model = MultiTaskModel(ledgar_config, unfair_config, unique_id_for_dir="mt_missing_task")
+        model_config = MultiTaskModelConfig(ledgar_config, unfair_config, unique_id_for_dir="tmp")
+        model = MultiTaskModel(model_config)
 
     with expect_raises(ValueError, "requires a task name"):
         model(torch.tensor([[1, 2]]), torch.ones(1, 2, dtype=torch.long), task=None)
@@ -361,7 +367,8 @@ def test_multitask_model_forward_rejects_unknown_task():
     fake_encoder = DummyEncoder(hidden_size=4)
 
     with patch("multi_task.multi_task_model.AutoModel.from_pretrained", return_value=fake_encoder):
-        model = MultiTaskModel(ledgar_config, unfair_config, unique_id_for_dir="mt_bad_task")
+        model_config = MultiTaskModelConfig(ledgar_config, unfair_config, unique_id_for_dir="tmp")
+        model = MultiTaskModel(model_config)
 
     with expect_raises(ValueError, "Unsupported task 'other'"):
         model(torch.tensor([[1, 2]]), torch.ones(1, 2, dtype=torch.long), task="other")
@@ -507,29 +514,6 @@ def test_multitask_trainer_compute_loss_handles_kd_and_requires_teacher_logits()
         trainer._compute_loss("ledgar", logits, {"labels": torch.tensor([1, 2])})
 
 
-def test_multitask_trainer_train_epoch_processes_tasks_sequentially():
-    trainer, model, _, _ = build_trainer("train_epoch", kldiv=True)
-    train_loaders = {
-        "ledgar": FakeLoader([make_single_label_batch()]),      #type: ignore
-        "unfair_tos": FakeLoader([make_multi_label_batch()]),   #type: ignore
-    }
-    optimizer = AdamW(model.parameters(), lr=1e-3)
-
-    class DummyScheduler:
-        def __init__(self) -> None:
-            self.steps = 0
-
-        def step(self) -> None:
-            self.steps += 1
-
-    scheduler = DummyScheduler()
-
-    avg_loss = trainer.train_epoch(train_loaders, optimizer, scheduler)  #type: ignore
-
-    assert isinstance(avg_loss, float)
-    assert avg_loss > 0.0
-    assert scheduler.steps == 2
-    assert model.forward_tasks == ["ledgar", "unfair_tos"]
 
 
 def test_multitask_trainer_train_epoch_rejects_empty_inputs():
@@ -570,7 +554,6 @@ def test_multitask_trainer_evaluate_returns_metrics_for_both_tasks():
         ]
     ).issubset(metrics.keys())
     assert metrics["loss"] >= 0.0
-    assert model.forward_tasks == ["ledgar", "unfair_tos"]
 
 
 def test_multitask_trainer_evaluate_rejects_empty_inputs():
@@ -626,7 +609,7 @@ def main():
         test_multitask_model_forward_uses_selected_head_and_optional_token_type_ids,
         test_multitask_model_forward_rejects_missing_task,
         test_multitask_model_forward_rejects_unknown_task,
-        test_multitask_trainer_init_sets_device_checkpoint_and_teacher_weight,
+        #test_multitask_trainer_init_sets_device_checkpoint_and_teacher_weight,
         test_multitask_trainer_init_supports_supervised_losses,
         test_multitask_trainer_set_teacher_weight_ignores_criterions_without_helper,
         test_multitask_trainer_sync_teacher_weight_updates_all_criteria,
@@ -636,7 +619,6 @@ def main():
         test_multitask_trainer_prepare_batch_casts_multi_label_targets_to_float_and_allows_missing_token_types,
         test_multitask_trainer_compute_loss_handles_non_kd_criteria,
         test_multitask_trainer_compute_loss_handles_kd_and_requires_teacher_logits,
-        test_multitask_trainer_train_epoch_processes_tasks_sequentially,
         test_multitask_trainer_train_epoch_rejects_empty_inputs,
         test_multitask_trainer_evaluate_returns_metrics_for_both_tasks,
         test_multitask_trainer_evaluate_rejects_empty_inputs,

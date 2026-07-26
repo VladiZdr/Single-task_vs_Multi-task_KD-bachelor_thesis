@@ -28,7 +28,7 @@ class ModelConfig:
     T: float = 1.0
     loss_reduction : Literal["mean", "sum"] = "mean"
 
-    # Parameter for low resource experiments
+    # Parameter for low resource experiments (cuts only train set)
     # Combined with "percent_of_data" leads to double cut on train set
     low_resource_percent: Literal[1, 10, 25, 50, 100] = 100
 
@@ -46,22 +46,22 @@ class ModelConfig:
     output_dir: str = ""
     unique_id_for_dir: str = ""
     teacher: ModelConfig | None = None
-    # Empty means "choose automatically" based on whether a teacher is attached.
+    # Empty means "choose automatically" based on whether a teacher is attached (for KD) or "raw" for non KD
     preprocessed_data_dir: str = ""
 
-    
+    # Ensure correct configuration
     def __post_init__(self):
+        # Correct task <-> label count
         if self.task_name == "ledgar" and self.num_labels != 100:
             raise ValueError(f"For task 'ledgar', num_labels must be 100, got {self.num_labels}.")
         if self.task_name == "unfair_tos" and self.num_labels != 8:
             raise ValueError(f"For task 'unfair_tos', num_labels must be 8, got {self.num_labels}.")
-        
+
+        # Correct values for hyperparamters
         if self.num_labels <= 0:
             raise ValueError(f"num_labels must be positive, got {self.num_labels}")
-        
         if self.batch_size <= 0:
             raise ValueError(f"batch_size must be positive, got {self.batch_size}")
-        
         if self.epochs < 0:
             raise ValueError(f"epochs must be non-negative, got {self.epochs}")
         if not 0.0 <= self.warmup_ratio <= 1.0:
@@ -72,14 +72,25 @@ class ModelConfig:
             raise ValueError(
                 f"low_resource_percent must be one of 1, 10, 25, 50, or 100, got {self.low_resource_percent}"
             )
-
         if not 0.0 <= self.kd_teacher_weight_start <= 1.0:
             raise ValueError(f"kd_teacher_weight_start must be between 0 and 1, got {self.kd_teacher_weight_start}")
         if not 0.0 <= self.kd_teacher_weight_end <= 1.0:
             raise ValueError(f"kd_teacher_weight_end must be between 0 and 1, got {self.kd_teacher_weight_end}")
+        valid = {
+                ("single_label", "cross_entropy"),
+                ("multi_label", "bce_with_logits"),
+                ("single_label", "kldiv"),
+                ("multi_label", "kldiv")
+                }
+        if (self.problem_type, self.loss_type) not in valid:
+                    raise ValueError(
+                        f"Invalid configuration: "
+                        f"{self.problem_type=} {self.loss_type=}"
+                    )
+
+        # Correct configuration for KD
         if self.loss_type == "kldiv" and self.teacher is None:
             raise ValueError("loss_type='kldiv' requires a teacher config.")
-
         if self.teacher is not None:
             if self.teacher.task_name != self.task_name:
                 raise ValueError(
@@ -96,8 +107,18 @@ class ModelConfig:
                     "the teacher output_dir. "
                     f"Got student={self.preprocessed_data_dir!r}, teacher={expected_preprocessed_dir!r}."
                 )
+
+        # Default value for source DS
         elif not self.preprocessed_data_dir:
             self.preprocessed_data_dir = "raw"
+            
+        # Create unique directories for each model
+        if len(self.unique_id_for_dir) > 25:
+            raise ValueError(f"Path directory too long. Shorten unique_id_for_dir to 25 characters or less. Current length: {len(self.unique_id_for_dir)}")
+        if not self.checkpoint_dir:
+            self.checkpoint_dir = f"./datasets_store/checkpoints/{self.task_name}_{self.unique_id_for_dir}"
+        if not self.output_dir:
+            self.output_dir = f"./datasets_store/ds_with_teacher_outputs/{self.task_name}_teacher_outputs_{self.unique_id_for_dir}"
 
         if self.device == "auto":
             self.device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -106,30 +127,10 @@ class ModelConfig:
         if self.device == "cpu":
             self.mixed_precision = False
 
-        if len(self.unique_id_for_dir) > 25:
-            raise ValueError(f"Path directory too long. Shorten unique_id_for_dir to 25 characters or less. Current length: {len(self.unique_id_for_dir)}")
-        if not self.checkpoint_dir:
-            self.checkpoint_dir = f"./datasets_store/checkpoints/{self.task_name}_{self.unique_id_for_dir}"
-        if not self.output_dir:
-            self.output_dir = f"./datasets_store/ds_with_teacher_outputs/{self.task_name}_teacher_outputs_{self.unique_id_for_dir}"
-        os.makedirs(self.checkpoint_dir, exist_ok=True) # if the directory doesn't exist, create it
-        os.makedirs(self.output_dir, exist_ok=True)     # if the directory exists, do nothing -> it will be overwritten
-
-        valid = {
-        ("single_label", "cross_entropy"),
-        ("multi_label", "bce_with_logits"),
-        ("single_label", "kldiv"),
-        ("multi_label", "kldiv")
-        }
-        if (self.problem_type, self.loss_type) not in valid:
-            raise ValueError(
-                f"Invalid configuration: "
-                f"{self.problem_type=} {self.loss_type=}"
-            )
-
     def get_loss_criterion(self) -> nn.Module:
         return LossFunctions.get_loss_function(self.problem_type, self.loss_type, self.loss_reduction, self.T)
 
+    # Teacher anealing with linear decline from kd_teacher_weight_start -> kd_teacher_weight_end
     def get_kd_teacher_weight(self, epoch_index: int, total_epochs: int) -> float:
         if self.loss_type != "kldiv":
             return 1.0
@@ -147,11 +148,8 @@ class MultiTaskModelConfig:
     unfair_tos_config: ModelConfig
     unique_id_for_dir: str
 
+    # Ensure Multi-task tasks share the same encoder and optimization / KD setup. 
     def __post_init__(self) -> None:
-        """
-        Multi-task training assumes both tasks share the same encoder and
-        optimization / KD setup. Fail fast if the paired configs drift apart.
-        """
         shared_fields = (
             "model_name_or_path",
             "learning_rate",

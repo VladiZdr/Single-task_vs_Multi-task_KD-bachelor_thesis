@@ -2,7 +2,7 @@ from __future__ import annotations
 import torch
 import torch.nn as nn
 from transformers import AutoModel
-from configs.model_config import ModelConfig
+from configs.model_config import ModelConfig, MultiTaskModelConfig
 
 
 class MultiTaskModel(nn.Module):
@@ -10,21 +10,15 @@ class MultiTaskModel(nn.Module):
 
     TASK_NAMES = ("ledgar", "unfair_tos")
 
-    def __init__(self, ledgar_config: ModelConfig, unfair_tos_config: ModelConfig, unique_id_for_dir: str) -> None:
+    def __init__(self, multi_task_model_config: MultiTaskModelConfig) -> None:
         super().__init__()
 
-        # A safety check. Because both tasks are going to share the exact same language model backbone, their underlying configuration strings must match exactly
-        if ledgar_config.model_name_or_path != unfair_tos_config.model_name_or_path:
-            raise ValueError(
-                "MultiTaskModel expects both task configs to use the same encoder checkpoint."
-            )
-
-        self.ledgar_config = ledgar_config
-        self.unfair_tos_config = unfair_tos_config
-        self.unique_id_for_dir = unique_id_for_dir
+        self.ledgar_config: ModelConfig = multi_task_model_config.ledgar_config
+        self.unfair_tos_config: ModelConfig = multi_task_model_config.unfair_tos_config
+        self.unique_id_for_dir = multi_task_model_config.unique_id_for_dir
 
         # This encoder will be shared globally across both tasks.
-        self.encoder = AutoModel.from_pretrained(ledgar_config.model_name_or_path)
+        self.encoder = AutoModel.from_pretrained(self.ledgar_config.model_name_or_path)
 
         # Safely looks up the pre-defined dropout rate inside the Hugging Face configuration file. If the model doesn't specify one, it defaults to 0.1 (10%).
         dropout_prob = getattr(self.encoder.config, "hidden_dropout_prob", 0.1)
@@ -36,8 +30,8 @@ class MultiTaskModel(nn.Module):
         # Sets up two unique linear classification heads. Both accept the hidden_size vector from the encoder, 
         # but map to different output numbers depending on how many classes each dataset has
         self.classifier_heads = nn.ModuleDict({
-                "ledgar": nn.Linear(hidden_size, ledgar_config.num_labels),
-                "unfair_tos": nn.Linear(hidden_size, unfair_tos_config.num_labels),
+                "ledgar": nn.Linear(hidden_size, self.ledgar_config.num_labels),
+                "unfair_tos": nn.Linear(hidden_size, self.unfair_tos_config.num_labels),
         })
 
         # Loops through both linear classification layers to manually set their starting weights.

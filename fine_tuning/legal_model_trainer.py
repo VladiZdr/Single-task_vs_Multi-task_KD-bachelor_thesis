@@ -9,21 +9,24 @@ import os
 from math import inf
 from typing import Dict, Any
 from tqdm import tqdm
-from configs.model_config import ModelConfig
+from fine_tuning.legal_model import LegalModel
 
 logger = logging.getLogger(__name__)
 
 
 class LegalModelTrainer:
-    def __init__(self, model: nn.Module, config: ModelConfig):
+    def __init__(self, model: LegalModel):
         # Stores the model and config, chooses the device, and moves the model there.
         self.model = model
-        self.config = config
-        self.device = torch.device(config.device)
+        self.config = model.config
+        self.device = torch.device(model.config.device)
         self.model.to(self.device)
 
-        self.criterion = config.get_loss_criterion()
+        self.criterion = model.config.get_loss_criterion()
         self._sync_teacher_weight(epoch_index=0)
+
+        os.makedirs(self.config.checkpoint_dir, exist_ok=True) # if the directory doesn't exist, create it
+        os.makedirs(self.config.output_dir, exist_ok=True)     # if the directory exists, do nothing -> it will be overwritten
 
     def _sync_teacher_weight(self, epoch_index: int) -> None:
         if hasattr(self.criterion, "set_teacher_weight"):
@@ -153,7 +156,8 @@ class LegalModelTrainer:
         micro_f1 = float(f1_score(all_labels, all_preds, average="micro", zero_division=0))
 
         return { "loss": float(avg_loss), "macro_f1": macro_f1, "micro_f1": micro_f1 }
-    
+
+    # Train one epoch -> evaluate -> if improved -> save in checkpoint
     def fit(self, train_loader: DataLoader, val_loader: DataLoader) -> str | None:
         if self.config.epochs == 0:
             logger.info("Configured epochs=0; skipping training and validation.")

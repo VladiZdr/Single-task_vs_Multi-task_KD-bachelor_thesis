@@ -14,6 +14,7 @@ from tqdm import tqdm
 from transformers import get_linear_schedule_with_warmup
 
 from configs.model_config import ModelConfig
+from multi_task.multi_task_model import MultiTaskModel
 
 logger = logging.getLogger(__name__)
 
@@ -21,16 +22,16 @@ logger = logging.getLogger(__name__)
 class MultiTaskTrainer:
     """Trainer for sequential multi-task fine-tuning across LEDGAR and UNFAIR-ToS."""
 
-    def __init__(self, model: nn.Module, ledgar_config: ModelConfig, unfair_tos_config: ModelConfig):
+    def __init__(self, model: MultiTaskModel):
         self.model = model
-        self.ledgar_config = ledgar_config
-        self.unfair_tos_config = unfair_tos_config
-        self.task_configs: dict[str, ModelConfig] = {"ledgar": ledgar_config, "unfair_tos": unfair_tos_config,}
+        self.ledgar_config: ModelConfig = model.ledgar_config
+        self.unfair_tos_config: ModelConfig = model.unfair_tos_config
+        self.task_configs: dict[str, ModelConfig] = {"ledgar": self.ledgar_config, "unfair_tos": self.unfair_tos_config,}
 
         self.checkpoint_path = f"./datasets_store/checkpoints/{self.model.unique_id_for_dir}"
         os.makedirs(self.checkpoint_path, exist_ok=True)
 
-        self.device = torch.device(ledgar_config.device)
+        self.device = torch.device(self.ledgar_config.device)
         self.model.to(self.device)
 
         # Comprehends and instantiates custom loss calculation functions for each dataset

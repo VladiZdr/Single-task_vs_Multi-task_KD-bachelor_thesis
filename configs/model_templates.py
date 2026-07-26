@@ -1,7 +1,7 @@
 from configs.model_config import ModelConfig, MultiTaskModelConfig
 
 
-"------------------------SINGLE-TASK CONFIGURATIONS------------------------"
+"---------------------------------------------------------SINGLE-TASK CONFIGURATIONS---------------------------------------------------------"
 # Testers  
 ledgar_teacher_tester = ModelConfig(
     task_name="ledgar",
@@ -590,7 +590,7 @@ unfair_tos_kd_student_final_seed_3 = ModelConfig(
 )
 
 
-"------------------------MULTI-TASK CONFIGURATIONS------------------------"
+"---------------------------------------------------------MULTI-TASK CONFIGURATIONS--------------------------------------------------------------------"
 
 # Testers
 multi_task_kd_model_tester = MultiTaskModelConfig(

@@ -125,8 +125,8 @@ def run_multitask_pipeline(multitask_model_config: MultiTaskModelConfig) -> None
 
     train_loaders, val_loaders, test_loaders = prepare_multitask_dataloaders(ledgar_config, unfair_tos_config)
 
-    model = MultiTaskModel(ledgar_config=ledgar_config, unfair_tos_config=unfair_tos_config, unique_id_for_dir=unique_id_for_dir)
-    trainer = MultiTaskTrainer(model, ledgar_config, unfair_tos_config)
+    model = MultiTaskModel(multitask_model_config)
+    trainer = MultiTaskTrainer(model)
 
     # If the model completes training and saves its parameters, it returns the disk location path. If no file is generated, it stops early.
     best_weights_path = trainer.fit(train_loaders, val_loaders)
