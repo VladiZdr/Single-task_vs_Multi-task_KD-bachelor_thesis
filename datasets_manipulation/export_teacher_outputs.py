@@ -10,10 +10,37 @@ from functools import lru_cache
 from transformers import AutoTokenizer
 
 logger = logging.getLogger(__name__)
+
 @lru_cache(maxsize=4)
 def _get_tokenizer(model_name_or_path: str):
     """Cached tokenizer fetcher to prevent loading tokenizers on every batch step."""
     return AutoTokenizer.from_pretrained(model_name_or_path)
+
+def _verify_tokenization_match(
+    texts: list[str],
+    expected_input_ids: torch.Tensor,
+    tokenizer,
+    model_name: str,
+    split_name: str,
+    source_name: str,
+    target_name: str,
+) -> None:
+    """Re-tokenizes a list of text strings and verifies that the output matches expected input_ids."""
+    max_len = expected_input_ids.shape[1]
+    retokenized_ids = tokenizer(
+        texts,
+        padding="max_length",
+        truncation=True,
+        max_length=max_len,
+        return_tensors="pt",
+    )["input_ids"].to(expected_input_ids.device)
+
+    if not torch.equal(retokenized_ids, expected_input_ids):
+        raise ValueError(
+            f"Tokenization mismatch on split '{split_name}'! "
+            f"Tokenizing {source_name} with '{model_name}' "
+            f"does not match {target_name}."
+        )
 
 class SoftTargetExporter:
     # Ensures exported outputs remain aligned index-for-index with the original dataset.
@@ -51,7 +78,6 @@ class SoftTargetExporter:
                 f"export dataset has {len(dataloader_export.dataset)} samples."  # type: ignore
             )
 
-    #TODO 
     @staticmethod
     def check_correct_transition_between_tokenizers(config: ModelConfig, batch_inference, batch_export, sample_idx_inf, sample_idx_exp, split_name):
         # 1. Strict Sample Alignment Check (Primary Guarantee)
@@ -68,13 +94,50 @@ class SoftTargetExporter:
                 f"Inference batch: {batch_inference['input_ids'].shape[0]}, Export batch: {batch_export['input_ids'].shape[0]}"
             )
 
-        # 3. Direct ID Check ONLY when tokenizers are identical
-        if config.model_name_or_path == "google/bert_uncased_L-4_H-256_A-4":
+        export_model_name = "google/bert_uncased_L-4_H-256_A-4"
+
+        # 3. Direct ID Check when tokenizers are identical is sufficient
+        if config.model_name_or_path == export_model_name:
             if not torch.equal(batch_inference["input_ids"], batch_export["input_ids"]):
                 raise ValueError(
-                    f"Identical tokenizer configured ('google/bert_uncased_L-4_H-256_A-4'), "
+                    f"Identical tokenizer configured ('{export_model_name}'), "
                     f"but input_ids differ on split '{split_name}'!"
                 )
+            return
+
+        # --- Cross-Tokenizer Verification for Different Models ---
+
+        # Step 1: Assert 'text' and 'task' columns exist in both batches
+        for col in ("text", "task"):
+            if col not in batch_inference or col not in batch_export:
+                raise KeyError(
+                    f"Missing required column '{col}' during cross-tokenizer check on split '{split_name}'! "
+                    f"Inference keys: {list(batch_inference.keys())}, Export keys: {list(batch_export.keys())}"
+                )
+        tokenizer_inf = _get_tokenizer(config.model_name_or_path)
+        tokenizer_exp = _get_tokenizer(export_model_name)
+
+        # Step 2: Check batch_inference['text'] with export tokenizer
+        _verify_tokenization_match(
+            texts=batch_inference["text"],
+            expected_input_ids=batch_export["input_ids"],
+            tokenizer=tokenizer_exp,
+            model_name=export_model_name,
+            split_name=split_name,
+            source_name="batch_inference['text']",
+            target_name="batch_export['input_ids']",
+        )
+
+        # Step 3: Check batch_export['text'] with inference tokenizer
+        _verify_tokenization_match(
+            texts=batch_export["text"],
+            expected_input_ids=batch_inference["input_ids"],
+            tokenizer=tokenizer_inf,
+            model_name=config.model_name_or_path,
+            split_name=split_name,
+            source_name="batch_export['text']",
+            target_name="batch_inference['input_ids']",
+        )
         
 
     @staticmethod

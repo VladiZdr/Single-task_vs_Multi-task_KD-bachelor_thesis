@@ -92,6 +92,8 @@ def prepare_dataloaders(task_config: ModelConfig) -> tuple[DataLoader, DataLoade
 
     # Force Torch formatting
     cols = ["input_ids", "attention_mask", "token_type_ids", "labels", "task", "sample_index"]
+    if task_config.model_name_or_path == "nlpaueb/legal-bert-base-uncased":
+        cols.append("text")
     if task_config.loss_type == 'kldiv':
         cols.append("logits")
     train_dataset.set_format(type="torch", columns=cols)

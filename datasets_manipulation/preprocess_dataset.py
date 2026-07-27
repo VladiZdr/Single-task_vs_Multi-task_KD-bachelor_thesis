@@ -196,7 +196,7 @@ def add_sample_index(dataset_dir):
     return _update_dataset_dir(dataset_dir, process)
 
 def normalize_text(text):
-    #which characters to replace with space, which to remove, and which to normalize
+    # which characters to replace with space, which to remove, and which to normalize
     text = text.replace("\xa0", " ")
     text = text.replace("\r\n", "\n").replace("\r", "\n")
     text = re.sub(r"[ \t\f\v]+", " ", text)
@@ -271,7 +271,7 @@ def tokenize_text_for_model(dataset_dir: str | Path, model_name: str, max_length
 
         tokenizer = AutoTokenizer.from_pretrained(model_name)
 
-        columns_to_keep = {"labels", "task", "sample_index"}
+        columns_to_keep = {"labels", "task", "sample_index", "text"}
         columns_to_remove = [
             column for column in train_split.column_names if column not in columns_to_keep
         ]

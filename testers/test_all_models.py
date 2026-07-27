@@ -11,6 +11,6 @@ if __name__ == "__main__":
     print("\nStarting teacher output export checks...")
     check_all_exports()
     print("Starting F1 score checks...")
-    #check_all_f1_scores()
+    check_all_f1_scores()
     
     print("\nAll tests completed successfully.")
