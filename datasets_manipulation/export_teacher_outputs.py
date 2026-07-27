@@ -38,7 +38,12 @@ class SoftTargetExporter:
     @staticmethod
     def export_all_splits(model: torch.nn.Module, dataloaders_inference: dict, dataloaders_export: dict, config: ModelConfig) -> None:
         for split_name, dataloader_inference in dataloaders_inference.items():
-            SoftTargetExporter.export(model, dataloader_inference, dataloader_inference, config, split_name)
+
+            if split_name not in dataloaders_export:
+                raise KeyError( f"Split '{split_name}' is present in dataloaders_inference but missing from dataloaders_export.")
+            dataloader_export = dataloaders_export[split_name]
+
+            SoftTargetExporter.export(model, dataloader_inference, dataloader_export, config, split_name)
 
     # Main method executing inference on a split and saving model predictions to disk.
     # TODO:Since teacher might be using different tokenizer we use dataloader_inference to get the teacher logits and 
@@ -46,10 +51,19 @@ class SoftTargetExporter:
     @staticmethod
     @torch.no_grad()
     def export(model: torch.nn.Module, dataloader_inference: DataLoader, dataloader_export: DataLoader, config: ModelConfig, split_name: str) -> None:
+        # Enforce sequential in-order processing for both dataloaders
         dataloader_inference = SoftTargetExporter._as_in_order_loader(dataloader_inference)
+        dataloader_export = SoftTargetExporter._as_in_order_loader(dataloader_export)
 
-        if len(dataloader_inference) == 0:
+        if len(dataloader_inference) == 0 or len(dataloader_export) == 0:
             raise ValueError(f"Cannot export soft targets for empty split: {split_name}")
+
+        if len(dataloader_inference.dataset) != len(dataloader_export.dataset):  # type: ignore
+            raise ValueError(
+                f"Dataset length mismatch for split '{split_name}': "
+                f"inference dataset has {len(dataloader_inference.dataset)} samples, "  # type: ignore
+                f"export dataset has {len(dataloader_export.dataset)} samples."  # type: ignore
+            )
         
         model.eval() 
         device = torch.device(config.device)
@@ -59,44 +73,58 @@ class SoftTargetExporter:
 
         logger.info(f"Extracting soft labels for task: {config.task_name}_{config.unique_id_for_dir}, split: {split_name}")
 
-        #TODO: change the source for labels, sample_idx, task_val
-        # token_type_ids, attention_mask, input_ids should have one for both inference and export (here correct transition must ensureed)
-        for batch in tqdm(dataloader_inference, desc=f"Exporting {split_name}"):
-            input_ids = batch["input_ids"].to(device)
-            attention_mask = batch["attention_mask"].to(device)
-            token_type_ids = batch.get("token_type_ids")
-            if token_type_ids is not None:
-                token_type_ids = token_type_ids.to(device)
-            labels = batch["labels"]
-            
-            # 1. Safely parse sample_index (convert to int64 Tensor if it's a Python list)
-            sample_idx = batch["sample_index"]
-            if not isinstance(sample_idx, torch.Tensor):
-                sample_idx = torch.tensor(sample_idx, dtype=torch.int64)
+        #TODO: The source for labels, sample_idx, task_val shouldn't matter because it should be the same for the 2 dataloaders
+        # token_type_ids, attention_mask, input_ids should have one for both inference and export (here correct transition must be ensured)
+        for batch_inf, batch_exp in zip( tqdm(dataloader_inference, desc=f"Exporting {split_name}"), dataloader_export):
+            sample_idx_inf = batch_inf["sample_index"]
+            sample_idx_exp = batch_exp["sample_index"]
 
-            # 2. Safely parse task 
-            task_val = batch["task"]
-            if isinstance(task_val, (list, tuple)):
-                task_tensor = SoftTargetExporter._encode_string_list(list(task_val))
-            elif isinstance(task_val, torch.Tensor):
-                task_tensor = task_val.cpu()
-            else:
-                task_tensor = SoftTargetExporter._encode_string_list([str(task_val)] * input_ids.shape[0])
-            
-            # Forward pass to get logits
-            logits = model(input_ids, attention_mask, token_type_ids)
-            
+            if not isinstance(sample_idx_inf, torch.Tensor):
+                sample_idx_inf = torch.tensor(sample_idx_inf, dtype=torch.int64)
+            if not isinstance(sample_idx_exp, torch.Tensor):
+                sample_idx_exp = torch.tensor(sample_idx_exp, dtype=torch.int64)
+
+            # Alignment check: ensure both streams process the exact same samples in order
+            if not torch.equal(sample_idx_inf, sample_idx_exp):
+                raise ValueError(
+                    f"Sample index mismatch during export on split '{split_name}'! "
+                    f"Inference indices: {sample_idx_inf.tolist()}, Export indices: {sample_idx_exp.tolist()}"
+                )
+
+            # Extract inputs from dataloader_inference to obtain teacher predictions
+            input_ids_inf = batch_inf["input_ids"].to(device)
+            attention_mask_inf = batch_inf["attention_mask"].to(device)
+            token_type_ids_inf = batch_inf.get("token_type_ids")
+            if token_type_ids_inf is not None:
+                token_type_ids_inf = token_type_ids_inf.to(device)
+            # Forward pass
+            logits = model(input_ids_inf, attention_mask_inf, token_type_ids_inf)
             # Compute probabilities based on task 
             if config.problem_type == "multi_label":
                 probs = torch.sigmoid(logits)
             else:
                 probs = torch.softmax(logits, dim=-1)
 
-            # Move data to CPU and append to buffers
-            tensor_buffers["input_ids"].append(input_ids.cpu())
-            tensor_buffers["attention_mask"].append(attention_mask.cpu())
-            if token_type_ids is not None:
-                tensor_buffers["token_type_ids"].append(token_type_ids.cpu())
+            # 3. Extract columns from dataloader_export for disk serialization
+            exp_input_ids = batch_exp["input_ids"]
+            exp_attention_mask = batch_exp["attention_mask"]
+            exp_token_type_ids = batch_exp.get("token_type_ids")
+            labels = batch_exp["labels"]
+            sample_idx = sample_idx_exp
+            # Parse task from export batch
+            task_val = batch_exp["task"]
+            if isinstance(task_val, (list, tuple)):
+                task_tensor = SoftTargetExporter._encode_string_list(list(task_val))
+            elif isinstance(task_val, torch.Tensor):
+                task_tensor = task_val.cpu()
+            else:
+                task_tensor = SoftTargetExporter._encode_string_list([str(task_val)] * exp_input_ids.shape[0])            
+            
+            # Append tensors to buffers (logits/probs from inference pass; tokens/labels/metadata from export loader)
+            tensor_buffers["input_ids"].append(exp_input_ids.cpu())
+            tensor_buffers["attention_mask"].append(exp_attention_mask.cpu())
+            if exp_token_type_ids is not None:
+                tensor_buffers["token_type_ids"].append(exp_token_type_ids.cpu())
             tensor_buffers["logits"].append(logits.cpu())
             tensor_buffers["probabilities"].append(probs.cpu())
             tensor_buffers["labels"].append(labels.cpu())

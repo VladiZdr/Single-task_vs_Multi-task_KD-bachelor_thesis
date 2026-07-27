@@ -10,20 +10,38 @@ from transformers import AutoTokenizer
 """----------------------------------------------------------------Helper methods for preprocessing---------------------------------------------------------------------------"""
 
 def preprocess_dataset(raw_dataset_dir, model_name) -> tuple[DatasetDict | Dataset, DatasetDict | Dataset]:
-    dataset_dir = create_preprocessed_dataset_dir(raw_dataset_dir=raw_dataset_dir)
-
     raw_dataset_dir = Path(raw_dataset_dir)
     dataset_name = raw_dataset_dir.name.replace("_staging", "").replace("_raw", "")
 
-    add_task_marker(dataset_dir = dataset_dir, task_marker = dataset_name)
-    add_sample_index(dataset_dir = dataset_dir)
-    clean_text(dataset_dir = dataset_dir)
-    rename_label_to_labels(dataset_dir = dataset_dir)
-    to_multi_hot(dataset_dir = dataset_dir)
-    tokenize_text(dataset_dir = dataset_dir, model_name=model_name)
+    # 1. Create base preprocessed working directory
+    base_dir = create_preprocessed_dataset_dir(raw_dataset_dir=raw_dataset_dir)
 
-    tokenized_ds_training = load_from_disk(str(dataset_dir))
-    tokenized_ds_export = load_from_disk(str(dataset_dir))
+    # 2. Run common dataset modifications in-place on the base directory
+    add_task_marker(dataset_dir=base_dir, task_marker=dataset_name)
+    add_sample_index(dataset_dir=base_dir)
+    clean_text(dataset_dir=base_dir)
+    rename_label_to_labels(dataset_dir=base_dir)
+    to_multi_hot(dataset_dir=base_dir)
+
+    # 3. Clean up existing directories (if any) and copy fresh from base_dir
+    training_dir = base_dir.parent / f"{base_dir.name}_training"
+    export_dir = base_dir.parent / f"{base_dir.name}_export"
+
+    if training_dir.exists():
+        rmtree(training_dir)
+    copytree(base_dir, training_dir)
+
+    if export_dir.exists():
+        rmtree(export_dir)
+    copytree(base_dir, export_dir)
+
+    # 4. Tokenize each directory via _update_dataset_dir for safe atomic disk operations
+    tokenize_text_for_model(dataset_dir=training_dir, model_name=model_name)
+    tokenize_text_for_model(dataset_dir=export_dir, model_name="google/bert_uncased_L-4_H-256_A-4")
+
+    # 5. Load and return both finalized dataset objects
+    tokenized_ds_training = _load_valid_dataset_dict(training_dir)
+    tokenized_ds_export = _load_valid_dataset_dict(export_dir)
 
     return tokenized_ds_training, tokenized_ds_export
 
@@ -238,23 +256,26 @@ def to_multi_hot(dataset_dir):
 
     return _update_dataset_dir(dataset_dir, process)
 
-def tokenize_text(dataset_dir, model_name="nlpaueb/legal-bert-base-uncased", max_length=256):
-    dataset_dir = Path(dataset_dir)
-
+def tokenize_text_for_model(dataset_dir: str | Path, model_name: str, max_length: int = 256):
     def process(dataset):
-        train_dataset = cast(Dataset, dataset["train"])
+        train_split = cast(
+            Dataset, 
+            dataset["train"] if isinstance(dataset, DatasetDict) else dataset
+        )
 
-        # Skip tokenization when rerunning preprocessing.
-        if {"input_ids", "attention_mask", "labels"} <= set(train_dataset.column_names):
+        # Skip if already tokenized or if raw text column is missing
+        if {"input_ids", "attention_mask"} <= set(train_split.column_names):
+            return None
+        if "text" not in train_split.column_names:
             return None
 
-        if "text" not in train_dataset.column_names:
-            return None
-
-        # Load the tokenizer that matches the Legal-BERT model used for the experiments.
         tokenizer = AutoTokenizer.from_pretrained(model_name)
 
-        # Tokenize one example's text into input_ids and attention_mask.
+        columns_to_keep = {"labels", "task", "sample_index"}
+        columns_to_remove = [
+            column for column in train_split.column_names if column not in columns_to_keep
+        ]
+
         def tokenize(example):
             return tokenizer(
                 example["text"],
@@ -263,17 +284,12 @@ def tokenize_text(dataset_dir, model_name="nlpaueb/legal-bert-base-uncased", max
                 max_length=max_length,
             )
 
-        # Remove raw text and other non-label columns after tokenization.
-        columns_to_keep = {"labels", "task", "sample_index"}
-        columns_to_remove = [
-            column for column in train_dataset.column_names if column not in columns_to_keep
-        ]
-
-        # Apply tokenization to every split and keep only the generated model inputs plus labels.
         return dataset.map(
             tokenize,
+            batched=True,
             remove_columns=columns_to_remove,
             keep_in_memory=True,
         )
 
+    # Wrap inside your safe file-lock-resistant pipeline updater
     return _update_dataset_dir(dataset_dir, process)

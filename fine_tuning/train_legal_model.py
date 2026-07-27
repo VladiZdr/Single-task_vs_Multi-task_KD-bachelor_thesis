@@ -101,7 +101,8 @@ def prepare_dataloaders(task_config: ModelConfig) -> tuple[DataLoader, DataLoade
     val_dataset_for_export.set_format(type="torch", columns=cols)
     test_dataset_for_export.set_format(type="torch", columns=cols)
 
-    return create_minibatches_for_taining_and_export(task_config, train_dataset, val_dataset, test_dataset, train_dataset_for_export, val_dataset_for_export, test_dataset_for_export)
+    train_loader, val_loader, test_loader, unshuffled_train_loader, dataloaders_for_export = create_minibatches_for_taining_and_export(task_config, train_dataset, val_dataset, test_dataset, train_dataset_for_export, val_dataset_for_export, test_dataset_for_export)
+    return train_loader, val_loader, test_loader, unshuffled_train_loader, dataloaders_for_export
 
 def run_task_pipeline(task_config: ModelConfig) -> None:
     logger.info(
