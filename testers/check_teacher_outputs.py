@@ -171,16 +171,6 @@ def verify_exports(directory_path: str, model:ModelConfig) -> dict[str, dict[str
 
     return verification_summary
 
-#TODO (could be implemented for each batch)
-def check_correct_transition_between_tokenizers(config: ModelConfig, dataloaders_inference: dict, dataloaders_export: dict):
-    """
-    if config.model_name_or_path = google/bert_uncased_L-4_H-256_A-4 -> tokenized_ds_training = tokenized_ds_export -> do nothing
-    else
-        1. untokenize dataloaders_inference
-        2. tokenize dataloaders_inference with google/bert_uncased_L-4_H-256_A-4
-        3. compare (2) with dataloaders_export
-    """
-    return
 
 def check_all_exports() -> None:
     for model in models_to_run:
