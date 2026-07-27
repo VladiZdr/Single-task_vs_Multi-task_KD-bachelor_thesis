@@ -17,6 +17,18 @@ from fine_tuning.train_legal_model import prepare_dataloaders, models_to_run as 
 from multi_task.multi_task_model import MultiTaskModel
 from multi_task.multi_task_trainer import MultiTaskTrainer
 from multi_task.train_multi_task import prepare_multitask_dataloaders
+from tf_idf_baseline.tf_idf_model import TfidfModel
+from tf_idf_baseline.tf_idf_trainer import TfidfTrainer
+from configs.model_config import TfidfBaselineConfig
+
+def instantiate_model_and_trainer(config: ModelConfig):
+    if isinstance(config, TfidfBaselineConfig):
+        model = TfidfModel(config)
+        trainer = TfidfTrainer(model)
+    else:
+        model = LegalModel(config)
+        trainer = LegalModelTrainer(model)
+    return model, trainer
 
 def _format_label_str(per_label_dict: Dict[str, Dict[str, float]], find_max: bool) -> str:
     if not per_label_dict:

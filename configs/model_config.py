@@ -12,7 +12,12 @@ class ModelConfig:
     num_labels: Literal[8, 100]
     problem_type: Literal["single_label", "multi_label"]
     loss_type: Literal["cross_entropy", "bce_with_logits", "kldiv"]
-    model_name_or_path: Literal["google/bert_uncased_L-4_H-256_A-4", "nlpaueb/legal-bert-base-uncased"]
+    # In ModelConfig definition
+    model_name_or_path: Literal[
+        "google/bert_uncased_L-4_H-256_A-4",
+        "nlpaueb/legal-bert-base-uncased",
+        "tfidf_baseline",
+    ]
     
     # Use only "percent_of_data" % of the dataset for quicker testing 
     # If used on already cut DB (student on teacher outputs) -> it will cut it further
@@ -180,4 +185,29 @@ class MultiTaskModelConfig:
             raise ValueError(
                 "Multi-task configs must share the same encoder and hyperparameters, "
                 "but the following fields differ:\n- " + "\n- ".join(mismatches)
+            )
+
+@dataclass
+class TfidfBaselineConfig(ModelConfig):
+    max_features: int = 10000
+    hidden_dim: int = 0
+    model_name_or_path: Literal[
+        "google/bert_uncased_L-4_H-256_A-4",
+        "nlpaueb/legal-bert-base-uncased",
+        "tfidf_baseline",
+    ] = "tfidf_baseline"
+
+    def __post_init__(self):
+        super().__post_init__()
+        object.__setattr__(self, "model_name_or_path", "tfidf_baseline")
+        
+        if self.max_features <= 0:
+            raise ValueError(f"max_features must be positive, got {self.max_features}")
+        if self.hidden_dim < 0:
+            raise ValueError(f"hidden_dim must be non-negative, got {self.hidden_dim}")
+        
+        # Resolve cache directory for TF-IDF dataset tensors
+        if not self.preprocessed_data_dir or self.preprocessed_data_dir == "raw":
+            self.preprocessed_data_dir = (
+                f"./datasets_store/tf_idf/{self.task_name}_vocab{self.max_features}_{self.unique_id_for_dir}"
             )
