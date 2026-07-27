@@ -6,12 +6,16 @@ from torch.utils.data import DataLoader
 from safetensors.torch import save_file
 from tqdm import tqdm
 from configs.model_config import ModelConfig
+from functools import lru_cache
+from transformers import AutoTokenizer
 
 logger = logging.getLogger(__name__)
+@lru_cache(maxsize=4)
+def _get_tokenizer(model_name_or_path: str):
+    """Cached tokenizer fetcher to prevent loading tokenizers on every batch step."""
+    return AutoTokenizer.from_pretrained(model_name_or_path)
 
 class SoftTargetExporter:
-
-
     # Ensures exported outputs remain aligned index-for-index with the original dataset.
     @staticmethod
     def _as_in_order_loader(dataloader: DataLoader) -> DataLoader:
@@ -50,20 +54,28 @@ class SoftTargetExporter:
     #TODO 
     @staticmethod
     def check_correct_transition_between_tokenizers(config: ModelConfig, batch_inference, batch_export, sample_idx_inf, sample_idx_exp, split_name):
-        """
-        if config.model_name_or_path = google/bert_uncased_L-4_H-256_A-4 -> tokenized_ds_training = tokenized_ds_export -> do nothing
-        else
-            1. untokenize dataloaders_inference
-            2. tokenize dataloaders_inference with google/bert_uncased_L-4_H-256_A-4
-            3. compare (2) with dataloaders_export
-        """
-        # Alignment check: ensure both streams process the exact same samples in order
+        # 1. Strict Sample Alignment Check (Primary Guarantee)
         if not torch.equal(sample_idx_inf, sample_idx_exp):
             raise ValueError(
-                f"Sample index mismatch during export on split '{split_name}'! "
-                f"Inference indices: {sample_idx_inf.tolist()}, Export indices: {sample_idx_exp.tolist()}"
+                f"Sample index mismatch on split '{split_name}'! "
+                f"Inference indices: {sample_idx_inf.tolist()} vs Export indices: {sample_idx_exp.tolist()}"
             )
-    
+
+        # 2. Batch Size & Structural Consistency Check
+        if batch_inference["input_ids"].shape[0] != batch_export["input_ids"].shape[0]:
+            raise ValueError(
+                f"Batch size mismatch on split '{split_name}'! "
+                f"Inference batch: {batch_inference['input_ids'].shape[0]}, Export batch: {batch_export['input_ids'].shape[0]}"
+            )
+
+        # 3. Direct ID Check ONLY when tokenizers are identical
+        if config.model_name_or_path == "google/bert_uncased_L-4_H-256_A-4":
+            if not torch.equal(batch_inference["input_ids"], batch_export["input_ids"]):
+                raise ValueError(
+                    f"Identical tokenizer configured ('google/bert_uncased_L-4_H-256_A-4'), "
+                    f"but input_ids differ on split '{split_name}'!"
+                )
+        
 
     @staticmethod
     def compute_logits_from_dataloader_inference(batch_inf, device, model, config):
