@@ -58,7 +58,9 @@ class SoftTargetExporter:
         tensor_buffers: dict[str, list[torch.Tensor]] = defaultdict(list)
 
         logger.info(f"Extracting soft labels for task: {config.task_name}_{config.unique_id_for_dir}, split: {split_name}")
-        
+
+        #TODO: change the source for labels, sample_idx, task_val
+        # token_type_ids, attention_mask, input_ids should have one for both inference and export (here correct transition must ensureed)
         for batch in tqdm(dataloader_inference, desc=f"Exporting {split_name}"):
             input_ids = batch["input_ids"].to(device)
             attention_mask = batch["attention_mask"].to(device)

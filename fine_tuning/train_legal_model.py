@@ -37,41 +37,34 @@ def seed_worker(worker_id: int) -> None:
     np.random.seed(worker_seed)
     random.seed(worker_seed)
 
-def prepare_dataloaders(task_config: ModelConfig) -> tuple[DataLoader, DataLoader, DataLoader, DataLoader, dict]:
-    set_all_seeds(task_config.seed)
-    
+def load_preprocessed_dataset(task_config: ModelConfig) -> tuple[HFDataset, HFDataset, HFDataset, HFDataset, HFDataset, HFDataset]:
     # Load tokenized dataset from disk or raw
     if task_config.preprocessed_data_dir == "raw":
         preprocessed_training, preprocessed_for_export = prep_dataset_from_raw(task_config)
     else:
         preprocessed_training = smart_load_dataset(task_config)
         preprocessed_for_export = preprocessed_training
-
-    if isinstance(preprocessed_training, DatasetDict):
+    
+    if isinstance(preprocessed_training, DatasetDict) and isinstance(preprocessed_for_export, DatasetDict):
         train_dataset = preprocessed_training["train"]
         val_dataset = preprocessed_training["validation"]
         test_dataset = preprocessed_training["test"]
-
+    
         train_dataset_for_export = preprocessed_for_export["train"]
         val_dataset_for_export = preprocessed_for_export["validation"]
         test_dataset_for_export = preprocessed_for_export["test"]
     elif isinstance(preprocessed_training, HFDataset):
         raise ValueError(
-            f"prep_dataset('{task_config.task_name}') returned a single Dataset, "
-            "but this pipeline expects a DatasetDict with train/validation/test splits."
-        )
+                f"prep_dataset('{task_config.task_name}') returned a single Dataset, "
+                "but this pipeline expects a DatasetDict with train/validation/test splits."
+            )
     else:
         raise TypeError(f"Unexpected dataset type: {type(preprocessed_training)}")
+    
+    return train_dataset, val_dataset, test_dataset, train_dataset_for_export, val_dataset_for_export, test_dataset_for_export
 
-    # Force Torch formatting
-    cols = ["input_ids", "attention_mask", "token_type_ids", "labels", "task", "sample_index"]
-    if task_config.loss_type == 'kldiv':
-        cols.append("logits")
-    train_dataset.set_format(type="torch", columns=cols)
-    val_dataset.set_format(type="torch", columns=cols)
-    test_dataset.set_format(type="torch", columns=cols)
-
-    # Create minibatches
+def create_minibatches_for_taining_and_export(task_config: ModelConfig, train_dataset, val_dataset, test_dataset, train_dataset_for_export, val_dataset_for_export, test_dataset_for_export):
+    # Create minibatches for training
     generator = torch.Generator()
     generator.manual_seed(task_config.seed)
     train_loader = DataLoader(train_dataset, batch_size=task_config.batch_size, shuffle=True, #type: ignore
@@ -80,15 +73,35 @@ def prepare_dataloaders(task_config: ModelConfig) -> tuple[DataLoader, DataLoade
     ) 
     val_loader = DataLoader(val_dataset, batch_size=task_config.batch_size, shuffle=False)    # type: ignore
     test_loader = DataLoader(test_dataset, batch_size=task_config.batch_size, shuffle=False)  # type: ignore
-    # Create train dataloader used for unshuffled export
+    
+    # Create train dataloader used for unshuffled export of teacher logits
     unshuffled_train_loader = DataLoader(train_dataset, batch_size=task_config.batch_size, shuffle=False)    # type: ignore
-
-    train_loader_export = DataLoader(train_dataset, batch_size=task_config.batch_size, shuffle=False)    # type: ignore
-    val_loader_export = DataLoader(val_dataset, batch_size=task_config.batch_size, shuffle=False)        # type: ignore
-    test_loader_export = DataLoader(test_dataset, batch_size=task_config.batch_size, shuffle=False)      # type: ignore
+    
+    # Create minibatches for export
+    train_loader_export = DataLoader(train_dataset_for_export, batch_size=task_config.batch_size, shuffle=False)    # type: ignore
+    val_loader_export = DataLoader(val_dataset_for_export, batch_size=task_config.batch_size, shuffle=False)        # type: ignore
+    test_loader_export = DataLoader(test_dataset_for_export, batch_size=task_config.batch_size, shuffle=False)      # type: ignore
     dataloaders_for_export = {"train": train_loader_export, "validation": val_loader_export, "test": test_loader_export}
 
     return train_loader, val_loader, test_loader, unshuffled_train_loader, dataloaders_for_export
+
+def prepare_dataloaders(task_config: ModelConfig) -> tuple[DataLoader, DataLoader, DataLoader, DataLoader, dict]:
+    set_all_seeds(task_config.seed)
+    
+    train_dataset, val_dataset, test_dataset, train_dataset_for_export, val_dataset_for_export, test_dataset_for_export = load_preprocessed_dataset(task_config)
+
+    # Force Torch formatting
+    cols = ["input_ids", "attention_mask", "token_type_ids", "labels", "task", "sample_index"]
+    if task_config.loss_type == 'kldiv':
+        cols.append("logits")
+    train_dataset.set_format(type="torch", columns=cols)
+    val_dataset.set_format(type="torch", columns=cols)
+    test_dataset.set_format(type="torch", columns=cols)
+    train_dataset_for_export.set_format(type="torch", columns=cols)
+    val_dataset_for_export.set_format(type="torch", columns=cols)
+    test_dataset_for_export.set_format(type="torch", columns=cols)
+
+    return create_minibatches_for_taining_and_export(task_config, train_dataset, val_dataset, test_dataset, train_dataset_for_export, val_dataset_for_export, test_dataset_for_export)
 
 def run_task_pipeline(task_config: ModelConfig) -> None:
     logger.info(
@@ -119,9 +132,9 @@ def run_task_pipeline(task_config: ModelConfig) -> None:
 
     # Export predictions for downstream knowledge distillation
     SoftTargetExporter.export_all_splits(model, 
-                                         dataloaders_inference={"train": unshuffled_train_loader, "validation": val_loader, "test": test_loader},
+                                         dataloaders_inference = {"train": unshuffled_train_loader, "validation": val_loader, "test": test_loader},
                                          dataloaders_export = dataloaders_for_export,
-                                         config= task_config)
+                                         config = task_config)
     logger.info(f"Task pipeline for {task_config.task_name}_{task_config.unique_id_for_dir} successfully executed.\n" + "="*160)
 
 testers = [

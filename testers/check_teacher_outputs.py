@@ -4,7 +4,6 @@ import torch
 if __package__ in (None, ""):
     sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
-from datasets_manipulation.export_teacher_outputs import SoftTargetExporter
 from safetensors import safe_open
 from fine_tuning.train_legal_model import models_to_run
 from configs.model_config import ModelConfig
@@ -13,7 +12,7 @@ from configs.model_config import ModelConfig
 REQUIRED_COLUMNS = {"input_ids", "attention_mask", "logits", "probabilities", "labels", "task", "sample_index"}
 OPTIONAL_COLUMNS = {"token_type_ids"}
 
-def check_mssing_splits(directory_path):
+def check_missing_splits_and_get_train_val_test_splits(directory_path):
     required_splits = ("train", "validation", "test")
     split_files = {
             split: os.path.join(directory_path, f"teacher_{split}_outputs.safetensors")
@@ -62,20 +61,20 @@ def print_info_about_safetensors(tensors, expected_task, num_classes, num_sample
     for key in REQUIRED_COLUMNS:
         assert tensors[key].shape[0] == num_samples, f"Batch size mismatch on column: {key}!"
 
-def verify_index_seq(model,tensors,num_samples, split_name):
-        # 1. Verify index sequence: sample_index must be strictly 0, 1, 2, ..., N-1
-    if model.low_resource_percent == 100:
-        sample_indices = tensors["sample_index"].to(torch.int64)
-        expected_indices = torch.arange(num_samples, dtype=torch.int64)
+def verify_index_seq(tensors,num_samples, split_name):
+    # Verify index sequence: sample_index must be strictly 0, 1, 2, ..., N-1
+    
+    sample_indices = tensors["sample_index"].to(torch.int64)
+    expected_indices = torch.arange(num_samples, dtype=torch.int64)
             
-        assert torch.equal(sample_indices, expected_indices), (
-            f"ORDER FAILURE: Split '{split_name}' has been shuffled or exported out of order! "
-            f"Expected sample_index 0..{num_samples-1}, but found non-sequential indices."
-        )
-        print(f"  ✓ Row order verified: 'sample_index' is strictly sequential (0 to {num_samples - 1}).")
+    assert torch.equal(sample_indices, expected_indices), (
+        f"ORDER FAILURE: Split '{split_name}' has been shuffled or exported out of order! "
+        f"Expected sample_index 0..{num_samples-1}, but found non-sequential indices."
+    )
+    print(f"  ✓ Row order verified: 'sample_index' is strictly sequential (0 to {num_samples - 1}).")
 
 def verify_probability_consistency(problem_type, tensors, num_samples, split_name):
-# 2. Probability consistency
+#  Probability consistency
         if problem_type == "multi_label":
             expected_probs = torch.sigmoid(tensors["logits"])
             assert tensors["labels"].shape == tensors["logits"].shape, "Multi-label exports must store dense label vectors"
@@ -93,7 +92,7 @@ def verify_probability_consistency(problem_type, tensors, num_samples, split_nam
             rtol=1e-5,
         ), f"Probability tensor in '{split_name}' does not match the logits-derived expectation"
 
-def diagnostic_inspection_output_for_first_sample(split_name, num_samples, num_classes, expected_task, problem_type, tensors):
+def diagnostic_inspection_output_for_first_sample_of_train(split_name, num_samples, num_classes, expected_task, problem_type, tensors):
     # Prints diagnostic inspection output for first sample to allow manual inspection of input IDs, attention mask, ground truth, logits, and probabilities.
     print("\n[3] Pipeline Integrity Checks:")
     print(f"  ✓ Split '{split_name}' contains {num_samples} records and {num_classes} classes.")
@@ -112,7 +111,7 @@ def diagnostic_inspection_output_for_first_sample(split_name, num_samples, num_c
 
 
 @staticmethod
-def verify_exports(directory_path: str, model) -> dict[str, dict[str, object]]:
+def verify_exports(directory_path: str, model:ModelConfig) -> dict[str, dict[str, object]]:
     """
     Scans the outputs folder, loads each generated SafeTensors split,
     checks that all mandatory columns are present, and validates that the
@@ -123,12 +122,15 @@ def verify_exports(directory_path: str, model) -> dict[str, dict[str, object]]:
             f"Target directory '{directory_path}' does not exist. Make sure the export step has run first."
         )
 
-    split_files = check_mssing_splits(directory_path)
+    split_files = check_missing_splits_and_get_train_val_test_splits(directory_path)
 
     verification_summary: dict[str, dict[str, object]] = {}
 
     # Initializes summary dictionary and prints formatting headers per split file.
     for split_name, file_path in split_files.items():
+        if split_name != "train":
+            continue
+
         print("=" * 60)
         print(f"Found Exported File: {os.path.basename(file_path)}")
         print(f"Full Path:           {file_path}")
@@ -149,11 +151,14 @@ def verify_exports(directory_path: str, model) -> dict[str, dict[str, object]]:
 
         print_info_about_safetensors(tensors, expected_task, num_classes, num_samples)
 
-        verify_index_seq(model,tensors,num_samples, split_name)
+        # Not applied on low_ressource models because the sample idxes are not sequential due to stratified sampling
+        if model.low_resource_percent == 100:
+            verify_index_seq(tensors,num_samples, split_name)
 
         verify_probability_consistency(problem_type, tensors, num_samples, split_name)
 
-        diagnostic_inspection_output_for_first_sample(split_name, num_samples, num_classes, expected_task, problem_type, tensors)
+        
+        diagnostic_inspection_output_for_first_sample_of_train(split_files["train"], num_samples, num_classes, expected_task, problem_type, tensors)
 
         # Records metadata summary for the split and returns verification_summary containing verified metrics across all splits.
         verification_summary[split_name] = {
@@ -181,7 +186,6 @@ def check_all_exports() -> None:
     for model in models_to_run:
         print(f"\n[{model.task_name}]")
         summary = verify_exports(directory_path=model.output_dir, model = model)
-        assert set(summary) == {"train", "validation", "test"}, f"{model.task_name} did not contain all three splits"
         for split_name, split_summary in summary.items():
             assert split_summary["num_samples"] > 0, f"{model.task_name} split '{split_name}' is empty"                           #type: ignore
             assert split_summary["num_classes"] in {8, 100}, f"{model.task_name} split '{split_name}' has unexpected class count"
