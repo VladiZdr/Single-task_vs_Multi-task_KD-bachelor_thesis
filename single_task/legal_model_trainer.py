@@ -9,7 +9,7 @@ import os
 from math import inf
 from typing import Dict, Any
 from tqdm import tqdm
-from fine_tuning.legal_model import LegalModel
+from single_task.legal_model import LegalModel
 
 logger = logging.getLogger(__name__)
 

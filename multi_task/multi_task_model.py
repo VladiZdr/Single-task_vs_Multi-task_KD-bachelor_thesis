@@ -2,7 +2,7 @@ from __future__ import annotations
 import torch
 import torch.nn as nn
 from transformers import AutoModel
-from configs.model_config import ModelConfig, MultiTaskModelConfig
+from configs.model_configs import ModelConfig, MultiTaskModelConfig
 
 
 class MultiTaskModel(nn.Module):

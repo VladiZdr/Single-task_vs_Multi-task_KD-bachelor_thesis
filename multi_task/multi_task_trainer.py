@@ -13,7 +13,7 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 from transformers import get_linear_schedule_with_warmup
 
-from configs.model_config import ModelConfig
+from configs.model_configs import ModelConfig
 from multi_task.multi_task_model import MultiTaskModel
 
 logger = logging.getLogger(__name__)

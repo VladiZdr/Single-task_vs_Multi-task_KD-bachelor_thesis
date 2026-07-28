@@ -7,11 +7,11 @@ import numpy as np
 from typing import Tuple
 from torch.utils.data import DataLoader, Dataset
 from sklearn.feature_extraction.text import TfidfVectorizer
-from configs.model_config import TfidfBaselineConfig
+from configs.model_configs import TfidfBaselineConfig
 from datasets_manipulation.prepare_datasets import prep_dataset_from_raw
 from tf_idf_baseline.tf_idf_model import TfidfModel
 from tf_idf_baseline.tf_idf_trainer import TfidfTrainer
-from fine_tuning.train_legal_model import set_all_seeds, seed_worker
+from single_task.train_legal_model import set_all_seeds, seed_worker
 from typing import cast
 from scipy.sparse import csr_matrix
 import configs.model_templates as templates

@@ -5,8 +5,8 @@ if __package__ in (None, ""):
     sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from safetensors import safe_open
-from fine_tuning.train_legal_model import models_to_run
-from configs.model_config import ModelConfig
+from single_task.train_legal_model import models_to_run
+from configs.model_configs import ModelConfig
 
 # Class attributes listing tensor keys that every exported file contains.
 REQUIRED_COLUMNS = {"input_ids", "attention_mask", "logits", "probabilities", "labels", "task", "sample_index"}

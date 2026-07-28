@@ -5,7 +5,7 @@ import torch
 from torch.utils.data import DataLoader
 from safetensors.torch import save_file
 from tqdm import tqdm
-from configs.model_config import ModelConfig
+from configs.model_configs import ModelConfig
 from functools import lru_cache
 from transformers import AutoTokenizer
 

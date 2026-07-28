@@ -2,11 +2,11 @@ import logging
 from datasets import Dataset as HFDataset
 from datasets import DatasetDict
 from torch.utils.data import DataLoader
-from configs.model_config import ModelConfig
+from configs.model_configs import ModelConfig
 import configs.model_templates as model_config
 from datasets_manipulation.prepare_datasets import prep_dataset_from_raw, smart_load_dataset
-from fine_tuning.legal_model import LegalModel
-from fine_tuning.legal_model_trainer import LegalModelTrainer
+from single_task.legal_model import LegalModel
+from single_task.legal_model_trainer import LegalModelTrainer
 from datasets_manipulation.export_teacher_outputs import SoftTargetExporter
 import torch
 import numpy as np

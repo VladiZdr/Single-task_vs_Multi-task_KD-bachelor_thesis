@@ -10,16 +10,16 @@ if __package__ in (None, ""):
 import numpy as np
 import torch
 from sklearn.metrics import precision_recall_fscore_support
-from configs.model_config import ModelConfig, MultiTaskModelConfig
-from fine_tuning.legal_model import LegalModel
-from fine_tuning.legal_model_trainer import LegalModelTrainer
-from fine_tuning.train_legal_model import prepare_dataloaders, models_to_run as single_task_models_to_run
+from configs.model_configs import ModelConfig, MultiTaskModelConfig
+from single_task.legal_model import LegalModel
+from single_task.legal_model_trainer import LegalModelTrainer
+from single_task.train_legal_model import prepare_dataloaders, models_to_run as single_task_models_to_run
 from multi_task.multi_task_model import MultiTaskModel
 from multi_task.multi_task_trainer import MultiTaskTrainer
 from multi_task.train_multi_task import prepare_multitask_dataloaders
 from tf_idf_baseline.tf_idf_model import TfidfModel
 from tf_idf_baseline.tf_idf_trainer import TfidfTrainer
-from configs.model_config import TfidfBaselineConfig
+from configs.model_configs import TfidfBaselineConfig
 from tf_idf_baseline.train_tf_idf import prepare_dataloaders as prepare_tfidf_dataloaders
 from tf_idf_baseline.train_tf_idf import models_to_run as tfidf_models_to_run
 

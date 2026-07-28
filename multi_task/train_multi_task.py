@@ -7,7 +7,7 @@ import torch
 from datasets import Dataset as HFDataset
 from datasets import DatasetDict
 from torch.utils.data import DataLoader
-from configs.model_config import ModelConfig, MultiTaskModelConfig
+from configs.model_configs import ModelConfig, MultiTaskModelConfig
 from datasets_manipulation.prepare_datasets import prep_dataset_from_raw, smart_load_dataset
 from multi_task.multi_task_model import MultiTaskModel
 from multi_task.multi_task_trainer import MultiTaskTrainer

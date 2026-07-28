@@ -7,7 +7,7 @@ if __package__ in (None, ""):
 
 import torch
 from configs.Loss_functions import KDLoss, LossFunctions
-from configs.model_config import ModelConfig
+from configs.model_configs import ModelConfig
 import torch.nn.functional as F
 
 

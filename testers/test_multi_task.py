@@ -14,7 +14,7 @@ import torch.nn as nn
 from torch.optim import AdamW
 
 from configs.Loss_functions import KDLoss
-from configs.model_config import ModelConfig, MultiTaskModelConfig
+from configs.model_configs import ModelConfig, MultiTaskModelConfig
 from multi_task.multi_task_model import MultiTaskModel
 from multi_task.multi_task_trainer import MultiTaskTrainer
 

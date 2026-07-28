@@ -8,7 +8,7 @@ from datasets_manipulation.preprocess_dataset import preprocess_dataset, _load_v
 from safetensors.torch import load_file
 import numpy as np
 from sklearn.model_selection import train_test_split
-from configs.model_config import ModelConfig
+from configs.model_configs import ModelConfig
 
 
 """--------------------------------------------Helper Methods for sampling for low resource experiments----------------------------------------------------

@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from configs.model_config import TfidfBaselineConfig
+from configs.model_configs import TfidfBaselineConfig
 
 class TfidfModel(nn.Module):
     def __init__(self, config: TfidfBaselineConfig, input_dim: int | None = None):

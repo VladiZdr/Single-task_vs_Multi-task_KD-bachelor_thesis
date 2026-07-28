@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from transformers import AutoModel
-from configs.model_config import ModelConfig
+from configs.model_configs import ModelConfig
 
 class LegalModel(nn.Module):
     def __init__(self, config: ModelConfig):

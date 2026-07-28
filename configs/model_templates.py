@@ -1,4 +1,4 @@
-from configs.model_config import ModelConfig, MultiTaskModelConfig, TfidfBaselineConfig
+from configs.model_configs import ModelConfig, MultiTaskModelConfig, TfidfBaselineConfig
 
 
 "---------------------------------------------------------SINGLE-TASK CONFIGURATIONS---------------------------------------------------------"
