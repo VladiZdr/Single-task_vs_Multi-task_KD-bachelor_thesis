@@ -13,7 +13,6 @@ from configs.model_templates import multi_task_main_modules
 from datasets_manipulation.prepare_datasets import prep_dataset_from_raw, smart_load_dataset
 from multi_task.multi_task_model import MultiTaskModel
 from multi_task.multi_task_trainer import MultiTaskTrainer
-import configs.model_templates as model_config
 
 logging.basicConfig(
     level=logging.INFO,
@@ -38,14 +37,18 @@ def seed_worker(worker_id: int) -> None:
     np.random.seed(worker_seed)
     random.seed(worker_seed)
 
-def _load_split_dataloaders(task_config: ModelConfig) -> Dict[str, DataLoader]:
-    set_all_seeds(task_config.seed)
+# Injects a programmatic tracking token inline so the multi-task model knows which classification head to use during training.
+def attach_task_column(dataset, task_config: ModelConfig):
+    if "task" in dataset.column_names:
+            return dataset
+    return dataset.add_column("task", [task_config.task_name] * len(dataset))
 
+def get_dataset_splits(task_config: ModelConfig):
     if task_config.preprocessed_data_dir == "raw":
         preprocessed, _ = prep_dataset_from_raw(task_config)
     else:
         preprocessed = smart_load_dataset(task_config)
-
+    
     # It expects a standard Hugging Face dictionary containing split tables (train, validation, test)
     if isinstance(preprocessed, DatasetDict):
         train_dataset = preprocessed["train"]
@@ -58,35 +61,37 @@ def _load_split_dataloaders(task_config: ModelConfig) -> Dict[str, DataLoader]:
     else:
         raise TypeError(f"Unexpected dataset type: {type(preprocessed)}")
 
-    # Injects a programmatic tracking token inline. This loops through the datasets and adds a text column filled with the task name (e.g., "ledgar"), 
-    # so the multi-task model knows which classification head to use during training.
-    def attach_task_column(dataset):
-        if "task" in dataset.column_names:
-            return dataset
-        return dataset.add_column("task", [task_config.task_name] * len(dataset))
+    return train_dataset, val_dataset, test_dataset
 
-    train_dataset = attach_task_column(train_dataset)
-    val_dataset = attach_task_column(val_dataset)
-    test_dataset = attach_task_column(test_dataset)
-
+def format_splits(train_dataset, val_dataset, test_dataset, task_config):
     # Selects the required data columns.
     cols = ["input_ids", "attention_mask", "token_type_ids", "labels", "task", "sample_index"]
-
     if task_config.loss_type == "kldiv":
         cols.append("logits")
-
+    
     # Changes the dataset output format, transforming Hugging Face text storage spaces directly into active PyTorch Tensors
     train_dataset.set_format(type="torch", columns=cols)
     val_dataset.set_format(type="torch", columns=cols)
     test_dataset.set_format(type="torch", columns=cols)
 
+def _load_split_dataloaders(task_config: ModelConfig) -> Dict[str, DataLoader]:
+    set_all_seeds(task_config.seed)
+
+    train_dataset, val_dataset, test_dataset = get_dataset_splits(task_config)
+        
+    train_dataset = attach_task_column(train_dataset, task_config)
+    val_dataset = attach_task_column(val_dataset, task_config)
+    test_dataset = attach_task_column(test_dataset, task_config)
+
+    format_splits(train_dataset, val_dataset, test_dataset, task_config)
+    
     # Instantiates a standalone PyTorch random sampling generation object tied down strictly to your project seed.
     generator = torch.Generator()
     generator.manual_seed(task_config.seed)
 
     # Wraps the structured datasets into iterable PyTorch streaming objects (DataLoader). 
     # The training data is randomized using locked seed generator, while validation and testing data stream through sequentially (shuffle=False).
-    train_loader = DataLoader( train_dataset, batch_size=task_config.batch_size, shuffle=True, generator=generator, worker_init_fn=seed_worker) # type: ignore
+    train_loader = DataLoader(train_dataset, batch_size=task_config.batch_size, shuffle=True, generator=generator, worker_init_fn=seed_worker) # type: ignore
     val_loader = DataLoader(val_dataset, batch_size=task_config.batch_size, shuffle=False)                                                      # type: ignore
     test_loader = DataLoader(test_dataset, batch_size=task_config.batch_size, shuffle=False)                                                    # type: ignore
 
