@@ -14,7 +14,8 @@ from tf_idf_baseline.tf_idf_trainer import TfidfTrainer
 from single_task.train_legal_model import set_all_seeds, seed_worker
 from typing import cast
 from scipy.sparse import csr_matrix
-import configs.model_templates as templates
+from configs.model_templates_testers import tf_idf_testers
+from configs.model_templates import tf_idf_main_modules
 
 logger = logging.getLogger("TfidfPipeline")
 
@@ -118,12 +119,8 @@ def run_task_pipeline(config: TfidfBaselineConfig) -> None:
         metrics = trainer.evaluate(test_loader)
         logger.info(f"Final Test Evaluation Metrics for {config.task_name}: {metrics}")
 
-testers = [
-    templates.tfidf_tester,
-    templates.tfidf_hidden_dim_tester
-]
-
-main_models = []
+testers = tf_idf_testers
+main_models = tf_idf_main_modules
 
 models_to_run = testers
 

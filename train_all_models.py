@@ -1,5 +1,5 @@
 from multi_task.train_multi_task import run_multitask_pipelines
-from fine_tuning.train_legal_model import run_pipelines as run_single_task_pipelines
+from single_task.train_legal_model import run_pipelines as run_single_task_pipelines
 from tf_idf_baseline.train_tf_idf import run_pipelines as run_tf_pipelines
 
 def run_all_pipelines() -> None:

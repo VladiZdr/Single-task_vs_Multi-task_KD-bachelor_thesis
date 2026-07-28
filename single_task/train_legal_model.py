@@ -4,6 +4,8 @@ from datasets import DatasetDict
 from torch.utils.data import DataLoader
 from configs.model_configs import ModelConfig
 import configs.model_templates as model_config
+from configs.model_templates_testers import single_task_testers
+from configs.model_templates import single_task_main_modules
 from datasets_manipulation.prepare_datasets import prep_dataset_from_raw, smart_load_dataset
 from single_task.legal_model import LegalModel
 from single_task.legal_model_trainer import LegalModelTrainer
@@ -140,52 +142,9 @@ def run_task_pipeline(task_config: ModelConfig) -> None:
                                          config = task_config)
     logger.info(f"Task pipeline for {task_config.task_name}_{task_config.unique_id_for_dir} successfully executed.\n" + "="*160)
 
-testers = [
-    model_config.ledgar_teacher_tester,
-    model_config.unfair_tos_teacher_tester,
+testers = single_task_testers
 
-    #model_config.ledgar_teacher_low_ressource_tester,
-    #model_config.unfair_tos_teacher_low_ressource_tester,
-    model_config.unfair_tos_kd_check_correct_low_ressource,
-    #model_config.ledgar_kd_check_correct_low_ressource,
-
-    model_config.unfair_tos_supervised_student_tester,
-
-    model_config.unfair_tos_check_correct_load_preprocessed_dataset,
-
-    model_config.unfair_tos_kd_student_tester,
-    model_config.ledgar_kd_student_tester,
-]
-
-main_models = [
-    # Teachers
-        model_config.ledgar_teacher,
-        model_config.unfair_tos_teacher,
-    # Baseline Students
-        model_config.ledgar_supervised_student_baseline,
-        model_config.unfair_tos_supervised_student_baseline,
-    # Knowledge Distillation Students
-        model_config.ledgar_kd_student,
-        model_config.unfair_tos_kd_student,
-    # Low-resource experiments
-        model_config.ledgar_supervised_student_low_resource,
-        model_config.unfair_tos_supervised_student_low_resource,
-        model_config.ledgar_kd_student_low_resource,
-        model_config.unfair_tos_kd_student_low_resource,
-    # Three-seed final experiments
-        model_config.ledgar_supervised_student_final_seed_1,
-        model_config.ledgar_supervised_student_final_seed_2,
-        model_config.ledgar_supervised_student_final_seed_3,
-        model_config.unfair_tos_supervised_student_final_seed_1,
-        model_config.unfair_tos_supervised_student_final_seed_2,
-        model_config.unfair_tos_supervised_student_final_seed_3,
-        model_config.ledgar_kd_student_final_seed_1,
-        model_config.ledgar_kd_student_final_seed_2,
-        model_config.ledgar_kd_student_final_seed_3,
-        model_config.unfair_tos_kd_student_final_seed_1,
-        model_config.unfair_tos_kd_student_final_seed_2,
-        model_config.unfair_tos_kd_student_final_seed_3,
-]
+main_models = single_task_main_modules
 
 models_to_run = testers
 

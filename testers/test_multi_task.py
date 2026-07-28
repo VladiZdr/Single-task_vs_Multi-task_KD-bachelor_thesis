@@ -107,7 +107,7 @@ def make_config(
 ) -> ModelConfig:
     num_labels = 100 if task_name == "ledgar" else 8
     teacher_loss = "bce_with_logits" if task_name == "unfair_tos" else "cross_entropy"
-    with patch("configs.model_config.os.makedirs", lambda *args, **kwargs: None):
+    with patch("configs.model_configs.os.makedirs", lambda *args, **kwargs: None):
         teacher = ModelConfig(
             task_name=task_name,  #type: ignore
             num_labels=num_labels,  #type: ignore

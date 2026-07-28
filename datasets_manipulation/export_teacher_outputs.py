@@ -139,7 +139,6 @@ class SoftTargetExporter:
             target_name="batch_inference['input_ids']",
         )
         
-
     @staticmethod
     def compute_logits_from_dataloader_inference(batch_inf, device, model, config):
         # Extract inputs from dataloader_inference to obtain teacher predictions

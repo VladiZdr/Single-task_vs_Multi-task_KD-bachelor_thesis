@@ -8,6 +8,8 @@ from datasets import Dataset as HFDataset
 from datasets import DatasetDict
 from torch.utils.data import DataLoader
 from configs.model_configs import ModelConfig, MultiTaskModelConfig
+from configs.model_templates_testers import multi_task_testers
+from configs.model_templates import multi_task_main_modules
 from datasets_manipulation.prepare_datasets import prep_dataset_from_raw, smart_load_dataset
 from multi_task.multi_task_model import MultiTaskModel
 from multi_task.multi_task_trainer import MultiTaskTrainer
@@ -144,23 +146,8 @@ def run_multitask_pipeline(multitask_model_config: MultiTaskModelConfig) -> None
 
     logger.info("Multi-task pipeline successfully executed for %s.\n" + "=" * 80, unique_id_for_dir)
 
-testers = [
-    model_config.multi_task_kd_model_tester,
-    model_config.multi_task_supervised_model_tester,
-    #model_config.multi_task_check_low_resource,
-]
-main_models = [
-    model_config.multi_task_supervised_model,
-    model_config.multi_task_kd_model,
-    model_config.multi_task_supervised_model_low_resource,
-    model_config.multi_task_kd_model_low_resource,
-    model_config.multi_task_supervised_model_final_seed_1,
-    model_config.multi_task_supervised_model_final_seed_2,
-    model_config.multi_task_supervised_model_final_seed_3,
-    model_config.multi_task_kd_model_final_seed_1,
-    model_config.multi_task_kd_model_final_seed_2,
-    model_config.multi_task_kd_model_final_seed_3,
-]
+testers = multi_task_testers
+main_models = multi_task_main_modules
 
 # Bundles paired task configuration objects into a structured execution queue array list.
 models_to_run = testers
