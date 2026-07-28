@@ -106,12 +106,12 @@ def _sample_low_resource_train_split(raw: DatasetDict, dataset_name: str, low_re
 
 # Validator enforcing allowed low-resource configurations
 def sample_low_resource_dataset(dataset: DatasetDict, dataset_name: str, low_resource_percent: int, seed: int) -> DatasetDict:
-    if low_resource_percent >= 100:
-        return dataset
-    if low_resource_percent not in (1, 10, 25, 50):
+    if low_resource_percent not in (1, 10, 25, 50, 100):
         raise ValueError(
             f"low_resource_percent must be one of 1, 10, 25, 50, or 100, got {low_resource_percent}"
         )
+    if low_resource_percent == 100:
+        return dataset
 
     return _sample_low_resource_train_split(dataset, dataset_name, low_resource_percent, seed)
 
