@@ -133,12 +133,7 @@ def test_sampling_is_not_first_n_percent(synthetic_ledgar_dataset: DatasetDict) 
         (50, 50),
     ],
 )
-def test_ledgar_stratification_preserves_label_distribution(
-    synthetic_ledgar_dataset: DatasetDict,
-    percent: int,
-    expected_per_class: int,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+def test_ledgar_stratification_preserves_label_distribution(synthetic_ledgar_dataset: DatasetDict, percent: int, expected_per_class: int, monkeypatch: pytest.MonkeyPatch) -> None:
     original = synthetic_ledgar_dataset
     expected_size = max(1, int(len(original["train"]) * (percent / 100)))
     captured_kwargs: dict[str, Any] = {}
@@ -163,10 +158,7 @@ def test_ledgar_stratification_preserves_label_distribution(
 
 
 @pytest.mark.parametrize("percent", [10, 25, 50])
-def test_unfair_tos_multilabel_stratification(
-    synthetic_unfair_tos_dataset: DatasetDict,
-    percent: int,
-) -> None:
+def test_unfair_tos_multilabel_stratification( synthetic_unfair_tos_dataset: DatasetDict, percent: int) -> None:
     pytest.importorskip("iterstrat")
 
     original = synthetic_unfair_tos_dataset
@@ -199,10 +191,7 @@ def test_percentage_100_returns_original_dataset_object(synthetic_ledgar_dataset
 
 
 @pytest.mark.parametrize("percent", [0, 5, 15, 30, 99, 105, -10])
-def test_invalid_percentages_raise_value_error(
-    synthetic_ledgar_dataset: DatasetDict,
-    percent: int,
-) -> None:
+def test_invalid_percentages_raise_value_error( synthetic_ledgar_dataset: DatasetDict, percent: int) -> None:
     with pytest.raises(ValueError):
         sample_low_resource_dataset(synthetic_ledgar_dataset, "ledgar", percent, seed=42)
 
