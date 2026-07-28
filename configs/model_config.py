@@ -190,7 +190,7 @@ class MultiTaskModelConfig:
 @dataclass
 class TfidfBaselineConfig(ModelConfig):
     max_features: int = 10000
-    hidden_dim: int = 0
+    hidden_dim: int = 0 # If we have a hidden layer -> how many input dimensions for it
     model_name_or_path: Literal[
         "google/bert_uncased_L-4_H-256_A-4",
         "nlpaueb/legal-bert-base-uncased",
@@ -207,7 +207,4 @@ class TfidfBaselineConfig(ModelConfig):
             raise ValueError(f"hidden_dim must be non-negative, got {self.hidden_dim}")
         
         # Resolve cache directory for TF-IDF dataset tensors
-        if not self.preprocessed_data_dir or self.preprocessed_data_dir == "raw":
-            self.preprocessed_data_dir = (
-                f"./datasets_store/tf_idf/{self.task_name}_vocab{self.max_features}_{self.unique_id_for_dir}"
-            )
+        self.preprocessed_data_dir = (f"./datasets_store/tf_idf_tensors/{self.task_name}_{self.unique_id_for_dir}")

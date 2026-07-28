@@ -3,22 +3,22 @@ import torch.nn as nn
 from configs.model_config import TfidfBaselineConfig
 
 class TfidfModel(nn.Module):
-    def __init__(self, config: TfidfBaselineConfig):
+    def __init__(self, config: TfidfBaselineConfig, input_dim: int | None = None):
         super().__init__()
         self.config = config
-        input_dim = config.max_features
+        self.input_dim = input_dim if input_dim is not None else config.max_features
         num_labels = config.num_labels
         hidden_dim = config.hidden_dim
 
         if hidden_dim > 0:
             self.net = nn.Sequential(
-                nn.Linear(input_dim, hidden_dim),
+                nn.Linear(self.input_dim, hidden_dim),
                 nn.ReLU(),
                 nn.Dropout(0.1),
                 nn.Linear(hidden_dim, num_labels)
             )
         else:
-            self.net = nn.Linear(input_dim, num_labels)
+            self.net = nn.Linear(self.input_dim, num_labels)
 
         self._init_weights()
 

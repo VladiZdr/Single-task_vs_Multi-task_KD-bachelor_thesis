@@ -1,4 +1,4 @@
-from configs.model_config import ModelConfig, MultiTaskModelConfig
+from configs.model_config import ModelConfig, MultiTaskModelConfig, TfidfBaselineConfig
 
 
 "---------------------------------------------------------SINGLE-TASK CONFIGURATIONS---------------------------------------------------------"
@@ -674,4 +674,40 @@ multi_task_kd_model_final_seed_3 = MultiTaskModelConfig(
     ledgar_config=ledgar_kd_student_final_seed_3,
     unfair_tos_config=unfair_tos_kd_student_final_seed_3,
     unique_id_for_dir="multi_task_kd_final_seed_3",
+)
+
+"---------------------------------------------------------TF-IDF BASELINE--------------------------------------------------------------------"
+
+# Testers
+tfidf_tester = TfidfBaselineConfig(
+    task_name="unfair_tos",
+    num_labels=8,
+    problem_type="multi_label",
+    loss_type="bce_with_logits",
+
+    model_name_or_path="tfidf_baseline", # !!!! important for data processing !!!!
+
+    percent_of_data=1,  
+    
+    batch_size=4,    
+
+    unique_id_for_dir = "tfidf_tester",
+    preprocessed_data_dir = "raw" # irrelevant -> will be overwritten later
+)
+
+tfidf_hidden_dim_tester = TfidfBaselineConfig(
+    task_name="unfair_tos",
+    num_labels=8,
+    problem_type="multi_label",
+    loss_type="bce_with_logits",
+
+    model_name_or_path="tfidf_baseline", # !!!! important for data processing !!!!
+    hidden_dim = 10000,
+
+    percent_of_data=1,  
+    
+    batch_size=4,    
+
+    unique_id_for_dir = "tfidf_hidden_dim",
+    preprocessed_data_dir = "raw" # irrelevant -> will be overwritten later
 )

@@ -23,6 +23,10 @@ def preprocess_dataset(raw_dataset_dir, model_name) -> tuple[DatasetDict | Datas
     rename_label_to_labels(dataset_dir=base_dir)
     to_multi_hot(dataset_dir=base_dir)
 
+    if model_name == "tfidf_baseline":
+        untokenized_ds = _load_valid_dataset_dict(base_dir)
+        return untokenized_ds, untokenized_ds
+
     # 3. Clean up existing directories (if any) and copy fresh from base_dir
     training_dir = base_dir.parent / f"{base_dir.name}_training"
     export_dir = base_dir.parent / f"{base_dir.name}_export"
