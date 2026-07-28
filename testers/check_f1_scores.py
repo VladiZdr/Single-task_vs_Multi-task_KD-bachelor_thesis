@@ -2,15 +2,13 @@ import os
 import sys
 import time
 from math import isfinite
-from typing import Any, Dict, Iterable
-
+from typing import Any, Dict, Iterable, Optional
 if __package__ in (None, ""):
     sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
-
 import numpy as np
 import torch
 from sklearn.metrics import precision_recall_fscore_support
-from configs.model_configs import ModelConfig, MultiTaskModelConfig
+from configs.model_configs import ModelConfig, MultiTaskModelConfig, TfidfBaselineConfig
 from single_task.legal_model import LegalModel
 from single_task.legal_model_trainer import LegalModelTrainer
 from single_task.train_legal_model import prepare_dataloaders, models_to_run as single_task_models_to_run
@@ -19,9 +17,9 @@ from multi_task.multi_task_trainer import MultiTaskTrainer
 from multi_task.train_multi_task import prepare_multitask_dataloaders
 from tf_idf_baseline.tf_idf_model import TfidfModel
 from tf_idf_baseline.tf_idf_trainer import TfidfTrainer
-from configs.model_configs import TfidfBaselineConfig
 from tf_idf_baseline.train_tf_idf import prepare_dataloaders as prepare_tfidf_dataloaders
 from tf_idf_baseline.train_tf_idf import models_to_run as tfidf_models_to_run
+
 
 def instantiate_model_and_trainer(config: ModelConfig):
     if isinstance(config, TfidfBaselineConfig):
@@ -41,8 +39,64 @@ def _format_label_str(per_label_dict: Dict[str, Dict[str, float]], find_max: boo
         label, data = min(per_label_dict.items(), key=lambda item: item[1]["f1"])
     return f"{label} ({data['f1']:.2f})"
 
+def _format_and_print_row(name: str, loss: float, macro_f1: float, micro_f1: float, best_lbl: str, worst_lbl: str, throughput: str):
+    """Helper to print a single standard row in the summary table."""
+    print(
+        f"{name:<50} | "
+        f"{loss:<7.4f} | "
+        f"{macro_f1:<8.4f} | "
+        f"{micro_f1:<8.4f} | "
+        f"{best_lbl:<18} | "
+        f"{worst_lbl:<18} | "
+        f"{throughput:<10}"
+    )
+
+def _print_results_section(results, prefix: str = "", is_multitask: bool = False):
+    """Prints formatted result rows for single-task, multi-task, or TF-IDF baseline models."""
+    for name, res in results:
+        m = res.get("metrics", {})
+        display_name = f"{prefix}{name}"
+
+        if not is_multitask:
+            # --- Single-Task / TF-IDF logic ---
+            a = res.get("analysis", {})
+            per_label = a.get("per_label", {})
+            eff = a.get("efficiency", {})
+
+            best_lbl = _format_label_str(per_label, find_max=True)
+            worst_lbl = _format_label_str(per_label, find_max=False)
+            throughput = f"{eff.get('samples_per_second', 0.0):.1f} smp/s" if eff else "-"
+
+            _format_and_print_row(display_name, m.get("loss", 0.0), m.get("macro_f1", 0.0), m.get("micro_f1", 0.0), best_lbl, worst_lbl, throughput)
+
+        else:
+            # --- Multi-Task overall parent row ---
+            _format_and_print_row(display_name, m.get("loss", 0.0), m.get("macro_f1", 0.0), m.get("micro_f1", 0.0), best_lbl="-", worst_lbl="-", throughput="-")
+
+            # --- Multi-Task sub-task breakdown rows ---
+            analyses = res.get("analyses", {})
+            tasks = [("ledgar", "LEDGAR"), ("unfair_tos", "UNFAIR-ToS")]
+
+            for idx, (task_key, task_label) in enumerate(tasks):
+                t_loss = m.get(f"{task_key}_loss", 0.0)
+                t_macro = m.get(f"{task_key}_macro_f1", 0.0)
+                t_micro = m.get(f"{task_key}_micro_f1", 0.0)
+
+                task_ana = analyses.get(task_key, {})
+                per_label = task_ana.get("per_label", {})
+                eff = task_ana.get("efficiency", {})
+
+                best_lbl = _format_label_str(per_label, find_max=True)
+                worst_lbl = _format_label_str(per_label, find_max=False)
+                throughput = f"{eff.get('samples_per_second', 0.0):.1f} smp/s" if eff else "-"
+
+                tree_branch = "└─" if idx == len(tasks) - 1 else "├─"
+                sub_name = f"  {tree_branch} {task_label}"
+
+                _format_and_print_row(sub_name, t_loss, t_macro, t_micro, best_lbl, worst_lbl, throughput)
+
 def print_table(single_results, multi_results, tfidf_results):
-    #  Print Final Summary Table 
+    # Print Final Summary Table 
     header_len = 140
     print("\n" + "=" * header_len)
     print(" FINAL EVALUATION SUMMARY ".center(header_len, "="))
@@ -50,59 +104,17 @@ def print_table(single_results, multi_results, tfidf_results):
     print(f"{'Model / Task Sub-Split':<50} | {'Loss':<7} | {'Macro-F1':<8} | {'Micro-F1':<8} | {'Best Label (F1)':<18} | {'Worst Label (F1)':<18} | {'Throughput':<10}")
     print("-" * header_len)
 
-    # Print Single-Task Models
-    for name, res in single_results:
-        m = res["metrics"]
-        a = res.get("analysis", {})
-        per_label = a.get("per_label", {})
-        eff = a.get("efficiency", {})
+    # 1. Single-Task
+    if single_results:
+        _print_results_section(single_results)
 
-        best_lbl = _format_label_str(per_label, find_max=True)
-        worst_lbl = _format_label_str(per_label, find_max=False)
-        throughput = f"{eff.get('samples_per_second', 0.0):.1f} smp/s" if eff else "-"
+    # 2. Multi-Task
+    if multi_results:
+        _print_results_section(multi_results, prefix="[MultiTask] ", is_multitask=True)
 
-        print(f"{name:<50} | {m.get('loss', 0.0):<7.4f} | {m.get('macro_f1', 0.0):<8.4f} | {m.get('micro_f1', 0.0):<8.4f} | {best_lbl:<18} | {worst_lbl:<18} | {throughput:<10}")
-
-    # Print TF-IDF Baseline Models
-    for name, res in tfidf_results:
-        m = res["metrics"]
-        a = res.get("analysis", {})
-        per_label = a.get("per_label", {})
-        eff = a.get("efficiency", {})
-
-        best_lbl = _format_label_str(per_label, find_max=True)
-        worst_lbl = _format_label_str(per_label, find_max=False)
-        throughput = f"{eff.get('samples_per_second', 0.0):.1f} smp/s" if eff else "-"
-
-        print(f"{'[TF-IDF] ' + name:<50} | {m.get('loss', 0.0):<7.4f} | {m.get('macro_f1', 0.0):<8.4f} | {m.get('micro_f1', 0.0):<8.4f} | {best_lbl:<18} | {worst_lbl:<18} | {throughput:<10}")
-
-    # Print Multi-Task Models
-    for name, res in multi_results:
-        m = res["metrics"]
-        analyses = res.get("analyses", {})
-
-        # Overall row
-        print(f"{'[MultiTask] ' + name:<50} | {m.get('loss', 0.0):<7.4f} | {m.get('macro_f1', 0.0):<8.4f} | {m.get('micro_f1', 0.0):<8.4f} | {'-':<18} | {'-':<18} | {'-':<10}")
-
-        # Sub-tasks breakdown
-        for task_key in ["ledgar", "unfair_tos"]:
-            t_loss = m.get(f"{task_key}_loss", 0.0)
-            t_macro = m.get(f"{task_key}_macro_f1", 0.0)
-            t_micro = m.get(f"{task_key}_micro_f1", 0.0)
-
-            task_ana = analyses.get(task_key, {})
-            per_label = task_ana.get("per_label", {})
-            eff = task_ana.get("efficiency", {})
-
-            best_lbl = _format_label_str(per_label, find_max=True)
-            worst_lbl = _format_label_str(per_label, find_max=False)
-            throughput = f"{eff.get('samples_per_second', 0.0):.1f} smp/s" if eff else "-"
-
-            prefix = "  ├─ LEDGAR" if task_key == "ledgar" else "  └─ UNFAIR-ToS"
-            print(f"{prefix:<50} | {t_loss:<7.4f} | {t_macro:<8.4f} | {t_micro:<8.4f} | {best_lbl:<18} | {worst_lbl:<18} | {throughput:<10}")
-
-    print("=" * header_len + "\n")
-    print("All F1 checks passed.")
+    # 3. TF-IDF
+    if tfidf_results:
+        _print_results_section(tfidf_results, prefix="[TF-IDF] ")
 
 def verify_metrics(metrics: Dict[str, float], required_keys: Iterable[str] = ("loss", "macro_f1", "micro_f1")) -> None:
     expected_keys = set(required_keys)
@@ -118,8 +130,14 @@ def verify_metrics(metrics: Dict[str, float], required_keys: Iterable[str] = ("l
     assert 0.0 <= metrics["macro_f1"] <= 1.0, "Macro-F1 must be in [0, 1]"
     assert 0.0 <= metrics["micro_f1"] <= 1.0, "Micro-F1 must be in [0, 1]"
 
-
-def _collect_task_predictions(trainer: MultiTaskTrainer, dataloader, task_name: str):
+def _collect_predictions(
+    trainer: Any, 
+    dataloader: Any, 
+    task_name: Optional[str] = None
+) -> tuple[np.ndarray, np.ndarray, int, float]:
+    """
+    Unified prediction collector for MultiTaskTrainer, LegalModelTrainer, and TfidfTrainer.
+    """
     all_preds = []
     all_labels = []
     start_time = time.perf_counter()
@@ -128,15 +146,33 @@ def _collect_task_predictions(trainer: MultiTaskTrainer, dataloader, task_name: 
     for batch in dataloader:
         prepared = trainer._prepare_batch(batch)
         labels = prepared["labels"]
-        task = prepared["task"]
-
         assert isinstance(labels, torch.Tensor)
-        assert isinstance(task, str)
-        assert task == task_name, f"Expected task '{task_name}', got '{task}'"
 
-        logits = trainer.model(prepared["input_ids"], prepared["attention_mask"], prepared["token_type_ids"], task=task)
+        # 1. Resolve task name & validate if applicable
+        current_task = prepared.get("task", task_name)
+        if task_name is not None and "task" in prepared:
+            assert prepared["task"] == task_name, f"Expected task '{task_name}', got '{prepared['task']}'"
 
-        if trainer.task_configs[task].problem_type == "multi_label":
+        # 2. Determine problem_type (MultiTask vs SingleTask/TF-IDF)
+        if hasattr(trainer, "task_configs") and current_task in trainer.task_configs:
+            problem_type = trainer.task_configs[current_task].problem_type
+        else:
+            problem_type = trainer.config.problem_type
+
+        # 3. Dynamically collect forward arguments present in prepared batch
+        forward_kwargs = {
+            k: prepared[k]
+            for k in ("input_ids", "attention_mask", "token_type_ids")
+            if k in prepared
+        }
+        if current_task is not None and hasattr(trainer, "task_configs"):
+            forward_kwargs["task"] = current_task
+
+        # 4. Model Forward Call
+        logits = trainer.model(**forward_kwargs)
+
+        # 5. Extract Predictions
+        if problem_type == "multi_label":
             preds = (torch.sigmoid(logits) >= 0.5).int().cpu().numpy()
         else:
             preds = torch.argmax(logits, dim=-1).cpu().numpy()
@@ -148,141 +184,29 @@ def _collect_task_predictions(trainer: MultiTaskTrainer, dataloader, task_name: 
     elapsed_seconds = time.perf_counter() - start_time
 
     if not all_preds:
-        raise ValueError(f"No batches were processed for task '{task_name}'")
+        target = f"task '{task_name}'" if task_name else "analysis"
+        raise ValueError(f"No batches were processed for {target}")
 
     preds_array = np.concatenate(all_preds, axis=0)
     labels_array = np.concatenate(all_labels, axis=0)
     return labels_array, preds_array, batch_count, elapsed_seconds
 
-
-def _collect_single_task_predictions(trainer: LegalModelTrainer, dataloader):
-    all_preds = []
-    all_labels = []
-    start_time = time.perf_counter()
-    batch_count = 0
-
-    for batch in dataloader:
-        prepared = trainer._prepare_batch(batch)
-        labels = prepared["labels"]
-
-        assert isinstance(labels, torch.Tensor)
-
-        logits = trainer.model(prepared["input_ids"], prepared["attention_mask"], prepared["token_type_ids"])
-        if trainer.config.problem_type == "multi_label":
-            preds = (torch.sigmoid(logits) >= 0.5).int().cpu().numpy()
-        else:
-            preds = torch.argmax(logits, dim=-1).cpu().numpy()
-
-        all_preds.append(preds)
-        all_labels.append(labels.detach().cpu().numpy())
-        batch_count += 1
-
-    elapsed_seconds = time.perf_counter() - start_time
-
-    if not all_preds:
-        raise ValueError("No batches were processed for single-task analysis")
-
-    preds_array = np.concatenate(all_preds, axis=0)
-    labels_array = np.concatenate(all_labels, axis=0)
-    return labels_array, preds_array, batch_count, elapsed_seconds
-
-
-def _collect_tfidf_predictions(trainer: TfidfTrainer, dataloader):
-    all_preds = []
-    all_labels = []
-    start_time = time.perf_counter()
-    batch_count = 0
-
-    for batch in dataloader:
-        prepared = trainer._prepare_batch(batch)
-        labels = prepared["labels"]
-
-        assert isinstance(labels, torch.Tensor)
-
-        logits = trainer.model(prepared["input_ids"])
-        if trainer.config.problem_type == "multi_label":
-            preds = (torch.sigmoid(logits) >= 0.5).int().cpu().numpy()
-        else:
-            preds = torch.argmax(logits, dim=-1).cpu().numpy()
-
-        all_preds.append(preds)
-        all_labels.append(labels.detach().cpu().numpy())
-        batch_count += 1
-
-    elapsed_seconds = time.perf_counter() - start_time
-
-    if not all_preds:
-        raise ValueError("No batches were processed for TF-IDF analysis")
-
-    preds_array = np.concatenate(all_preds, axis=0)
-    labels_array = np.concatenate(all_labels, axis=0)
-    return labels_array, preds_array, batch_count, elapsed_seconds
-
-
-def analyze_single_task_performance_and_efficiency(
-    trainer: LegalModelTrainer,
-    dataloader,
+def analyze_performance_and_efficiency(
+    trainer: Any,
+    dataloader: Any,
     task_name: str,
     num_labels: int,
-) -> Dict[str, Dict[str, float]]:
-    labels_array, preds_array, batch_count, elapsed_seconds = _collect_single_task_predictions(trainer, dataloader)
-
-    if labels_array.ndim == 1:
-        precision, recall, f1, support = precision_recall_fscore_support(
-            labels_array,
-            preds_array,
-            labels=list(range(num_labels)),
-            average=None,
-            zero_division=0,
-        )
-    else:
-        precision, recall, f1, support = precision_recall_fscore_support(
-            labels_array,
-            preds_array,
-            average=None,
-            zero_division=0,
-        )
-
-    per_label_metrics: Dict[str, Dict[str, float]] = {}
-    for index in range(num_labels):
-        per_label_metrics[f"label_{index}"] = {
-            "precision": float(precision[index]),   #type: ignore
-            "recall": float(recall[index]),         #type: ignore
-            "f1": float(f1[index]),                 #type: ignore
-            "support": float(support[index]),       #type: ignore
-        }
-
-    total_samples = int(labels_array.shape[0])
-    efficiency = {
-        "elapsed_seconds": float(elapsed_seconds),
-        "num_batches": float(batch_count),
-        "num_samples": float(total_samples),
-        "samples_per_second": float(total_samples / elapsed_seconds) if elapsed_seconds > 0 else float("inf"),
-        "milliseconds_per_sample": float((elapsed_seconds / total_samples) * 1000.0) if total_samples > 0 else 0.0,
-        "milliseconds_per_batch": float((elapsed_seconds / batch_count) * 1000.0) if batch_count > 0 else 0.0,
-    }
-
-    print(
-        f"Per-label analysis for {task_name}: "
-        f"best={max(per_label_metrics.items(), key=lambda item: item[1]['f1'])[0]} "
-        f"worst={min(per_label_metrics.items(), key=lambda item: item[1]['f1'])[0]} "
-        f"throughput={efficiency['samples_per_second']:.2f} samples/s"
+) -> Dict[str, Dict[str, Any]]:
+    """
+    Unified performance and efficiency evaluation for Single-Task, Multi-Task, 
+    and TF-IDF models.
+    """
+    # 1. Collect predictions using the unified prediction collector
+    labels_array, preds_array, batch_count, elapsed_seconds = _collect_predictions(
+        trainer, dataloader, task_name=task_name
     )
 
-    return {
-        "per_label": per_label_metrics,  #type: ignore
-        "efficiency": efficiency,
-    }
-
-
-def analyze_tf_idf_performance_and_efficiency(
-    trainer: TfidfTrainer,
-    dataloader,
-    task_name: str,
-    num_labels: int,
-) -> Dict[str, Dict[str, float]]:
-    labels_array, preds_array, batch_count, elapsed_seconds = _collect_tfidf_predictions(trainer, dataloader)
-
+    # 2. Compute Precision, Recall, F1, and Support per label
     if labels_array.ndim == 1:
         precision, recall, f1, support = precision_recall_fscore_support(
             labels_array,
@@ -299,15 +223,18 @@ def analyze_tf_idf_performance_and_efficiency(
             zero_division=0,
         )
 
-    per_label_metrics: Dict[str, Dict[str, float]] = {}
-    for index in range(num_labels):
-        per_label_metrics[f"label_{index}"] = {
-            "precision": float(precision[index]),   #type: ignore
-            "recall": float(recall[index]),         #type: ignore
-            "f1": float(f1[index]),                 #type: ignore
-            "support": float(support[index]),       #type: ignore
+    # 3. Format per-label metrics dictionary
+    per_label_metrics: Dict[str, Dict[str, float]] = {
+        f"label_{index}": {
+            "precision": float(precision[index]),  # type: ignore
+            "recall": float(recall[index]),        # type: ignore
+            "f1": float(f1[index]),                # type: ignore
+            "support": float(support[index]),      # type: ignore
         }
+        for index in range(num_labels)
+    }
 
+    # 4. Calculate efficiency metrics
     total_samples = int(labels_array.shape[0])
     efficiency = {
         "elapsed_seconds": float(elapsed_seconds),
@@ -318,6 +245,7 @@ def analyze_tf_idf_performance_and_efficiency(
         "milliseconds_per_batch": float((elapsed_seconds / batch_count) * 1000.0) if batch_count > 0 else 0.0,
     }
 
+    # 5. Sanity Check Assertions
     assert len(per_label_metrics) == num_labels, f"Expected {num_labels} label metrics, got {len(per_label_metrics)}"
     for label_name, metrics in per_label_metrics.items():
         assert 0.0 <= metrics["precision"] <= 1.0, f"{label_name} precision must be in [0, 1]"
@@ -330,6 +258,7 @@ def analyze_tf_idf_performance_and_efficiency(
     assert efficiency["num_samples"] > 0.0
     assert efficiency["samples_per_second"] > 0.0
 
+    # 6. Log per-label summary
     best_label = max(per_label_metrics.items(), key=lambda item: item[1]["f1"])
     worst_label = min(per_label_metrics.items(), key=lambda item: item[1]["f1"])
     print(
@@ -340,82 +269,12 @@ def analyze_tf_idf_performance_and_efficiency(
     )
 
     return {
-        "per_label": per_label_metrics,   #type: ignore
-        "efficiency": efficiency,
-    }
-
-
-def analyze_per_label_performance_and_efficiency(
-    trainer: MultiTaskTrainer,
-    dataloader,
-    task_name: str,
-    num_labels: int,
-) -> Dict[str, Dict[str, float]]:
-    labels_array, preds_array, batch_count, elapsed_seconds = _collect_task_predictions(trainer, dataloader, task_name)
-
-    if labels_array.ndim == 1:
-        precision, recall, f1, support = precision_recall_fscore_support(
-            labels_array,
-            preds_array,
-            labels=list(range(num_labels)),
-            average=None,
-            zero_division=0,
-        )
-    else:
-        precision, recall, f1, support = precision_recall_fscore_support(
-            labels_array,
-            preds_array,
-            average=None,
-            zero_division=0,
-        )
-
-    per_label_metrics: Dict[str, Dict[str, float]] = {}
-    for index in range(num_labels):
-        per_label_metrics[f"label_{index}"] = {
-            "precision": float(precision[index]),   #type: ignore
-            "recall": float(recall[index]),         #type: ignore
-            "f1": float(f1[index]),                 #type: ignore
-            "support": float(support[index]),       #type: ignore
-        }
-
-    total_samples = int(labels_array.shape[0])
-    efficiency = {
-        "elapsed_seconds": float(elapsed_seconds),
-        "num_batches": float(batch_count),
-        "num_samples": float(total_samples),
-        "samples_per_second": float(total_samples / elapsed_seconds) if elapsed_seconds > 0 else float("inf"),
-        "milliseconds_per_sample": float((elapsed_seconds / total_samples) * 1000.0) if total_samples > 0 else 0.0,
-        "milliseconds_per_batch": float((elapsed_seconds / batch_count) * 1000.0) if batch_count > 0 else 0.0,
-    }
-
-    assert len(per_label_metrics) == num_labels, f"Expected {num_labels} label metrics, got {len(per_label_metrics)}"
-    for label_name, metrics in per_label_metrics.items():
-        assert 0.0 <= metrics["precision"] <= 1.0, f"{label_name} precision must be in [0, 1]"
-        assert 0.0 <= metrics["recall"] <= 1.0, f"{label_name} recall must be in [0, 1]"
-        assert 0.0 <= metrics["f1"] <= 1.0, f"{label_name} F1 must be in [0, 1]"
-        assert metrics["support"] >= 0.0, f"{label_name} support must be non-negative"
-
-    assert efficiency["elapsed_seconds"] >= 0.0
-    assert efficiency["num_batches"] > 0.0
-    assert efficiency["num_samples"] > 0.0
-    assert efficiency["samples_per_second"] > 0.0
-
-    best_label = max(per_label_metrics.items(), key=lambda item: item[1]["f1"])
-    worst_label = min(per_label_metrics.items(), key=lambda item: item[1]["f1"])
-    print(
-        f"Per-label analysis for {task_name}: "
-        f"best={best_label[0]} (F1={best_label[1]['f1']:.4f}), "
-        f"worst={worst_label[0]} (F1={worst_label[1]['f1']:.4f}), "
-        f"throughput={efficiency['samples_per_second']:.2f} samples/s"
-    )
-
-    return {
-        "per_label": per_label_metrics,   #type: ignore
+        "per_label": per_label_metrics,
         "efficiency": efficiency,
     }
 
 @torch.no_grad()
-def evaluate_model(param_config: ModelConfig) -> Dict[str, Any]:
+def evaluate_single_task_model(param_config: ModelConfig) -> Dict[str, Any]:
     current_config = param_config
     checkpoint_path = os.path.join(current_config.checkpoint_dir, "best_model.pt")
 
@@ -434,7 +293,7 @@ def evaluate_model(param_config: ModelConfig) -> Dict[str, Any]:
     trainer._remove_teacher_weight_for_evaluation()  # Ensure teacher weight is set to 0 for evaluation
     metrics = trainer.evaluate(test_loader)
     verify_metrics(metrics)
-    analysis = analyze_single_task_performance_and_efficiency(
+    analysis = analyze_performance_and_efficiency(
         trainer,
         test_loader,
         current_config.task_name,
@@ -443,7 +302,6 @@ def evaluate_model(param_config: ModelConfig) -> Dict[str, Any]:
 
     print(f"Evaluation metrics for {current_config.task_name}_{current_config.unique_id_for_dir}: {metrics}")
     return {"metrics": metrics, "analysis": analysis}
-
 
 @torch.no_grad()
 def evaluate_multi_task_model(param_model: MultiTaskModelConfig) -> Dict[str, Any]:
@@ -488,10 +346,10 @@ def evaluate_multi_task_model(param_model: MultiTaskModelConfig) -> Dict[str, An
         ),
     )
 
-    ledgar_analysis = analyze_per_label_performance_and_efficiency(
+    ledgar_analysis = analyze_performance_and_efficiency(
         trainer, test_loaders["ledgar"], "ledgar", current_model.ledgar_config.num_labels,
     )
-    unfair_tos_analysis = analyze_per_label_performance_and_efficiency(
+    unfair_tos_analysis = analyze_performance_and_efficiency(
         trainer, test_loaders["unfair_tos"], "unfair_tos", current_model.unfair_tos_config.num_labels,
     )
     print(
@@ -506,7 +364,6 @@ def evaluate_multi_task_model(param_model: MultiTaskModelConfig) -> Dict[str, An
             "unfair_tos": unfair_tos_analysis,
         }
     }
-
 
 @torch.no_grad()
 def evaluate_tf_idf(param_config: TfidfBaselineConfig) -> Dict[str, Any]:
@@ -529,7 +386,7 @@ def evaluate_tf_idf(param_config: TfidfBaselineConfig) -> Dict[str, Any]:
     trainer = TfidfTrainer(model)
     metrics = trainer.evaluate(test_loader)
     verify_metrics(metrics)
-    analysis = analyze_tf_idf_performance_and_efficiency(
+    analysis = analyze_performance_and_efficiency(
         trainer,
         test_loader,
         current_config.task_name,
@@ -545,7 +402,7 @@ def check_all_f1_scores() -> None:
     tfidf_results = []
 
     for config in single_task_models_to_run:
-        res = evaluate_model(param_config=config)
+        res = evaluate_single_task_model(param_config=config)
         single_results.append((f"{config.task_name}_{config.unique_id_for_dir}", res))
 
     for config in tfidf_models_to_run:
