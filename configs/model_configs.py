@@ -1,10 +1,10 @@
+from __future__ import annotations  
 import os
 import torch
 import torch.nn as nn
 from dataclasses import dataclass
 from typing import Literal
 from configs.Loss_functions import LossFunctions
-
 
 @dataclass
 class ModelConfig:
