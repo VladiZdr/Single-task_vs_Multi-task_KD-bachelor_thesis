@@ -122,7 +122,7 @@ def run_task_pipeline(config: TfidfBaselineConfig) -> None:
 testers = tf_idf_testers
 main_models = tf_idf_main_modules
 
-models_to_run = testers
+models_to_run = main_models
 
 def run_pipelines():
     for model in models_to_run:

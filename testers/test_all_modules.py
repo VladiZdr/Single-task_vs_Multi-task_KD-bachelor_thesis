@@ -8,6 +8,7 @@ from testers.check_f1_scores import check_all_f1_scores
 from testers.check_kd_loss_fun import main as check_all_kd_loss_functions
 from testers.check_teacher_outputs import check_all_exports
 from testers.test_multi_task import main as check_all_multi_task
+from testers.check_model_templates import run_check as check_configs
 
 
 def check_all_low_resource_tests() -> None:
@@ -18,6 +19,8 @@ def check_all_low_resource_tests() -> None:
 
 
 def main() -> None:
+    print("\nConfigs checks...")
+    check_configs()
     print("\nStarting low-resource sampling checks...")
     check_all_low_resource_tests()
 

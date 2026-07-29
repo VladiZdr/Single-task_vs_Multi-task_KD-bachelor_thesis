@@ -9,7 +9,7 @@ from datasets import DatasetDict
 from torch.utils.data import DataLoader
 from configs.model_configs import ModelConfig, MultiTaskModelConfig
 from configs.model_templates_testers import multi_task_testers
-from configs.model_templates import multi_task_main_modules
+from configs.model_templates import multi_task_main_modules, multi_task_different_seed_models, multi_task_low_ressource_models
 from datasets_manipulation.prepare_datasets import prep_dataset_from_raw, smart_load_dataset
 from multi_task.multi_task_model import MultiTaskModel
 from multi_task.multi_task_trainer import MultiTaskTrainer
@@ -155,7 +155,7 @@ testers = multi_task_testers
 main_models = multi_task_main_modules
 
 # Bundles paired task configuration objects into a structured execution queue array list.
-models_to_run = testers
+models_to_run = main_models
 
 def run_multitask_pipelines() -> None:
     for model in models_to_run:

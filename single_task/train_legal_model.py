@@ -5,7 +5,7 @@ from torch.utils.data import DataLoader
 from configs.model_configs import ModelConfig
 import configs.model_templates as model_config
 from configs.model_templates_testers import single_task_testers
-from configs.model_templates import single_task_main_modules
+from configs.model_templates import single_task_main_modules,single_task_low_ressource_models, single_task_different_seed_models
 from datasets_manipulation.prepare_datasets import prep_dataset_from_raw, smart_load_dataset
 from single_task.legal_model import LegalModel
 from single_task.legal_model_trainer import LegalModelTrainer
@@ -98,6 +98,7 @@ def prepare_dataloaders(task_config: ModelConfig) -> tuple[DataLoader, DataLoade
         cols.append("text")
     if task_config.loss_type == 'kldiv':
         cols.append("logits")
+
     train_dataset.set_format(type="torch", columns=cols)
     val_dataset.set_format(type="torch", columns=cols)
     test_dataset.set_format(type="torch", columns=cols)
@@ -146,7 +147,7 @@ testers = single_task_testers
 
 main_models = single_task_main_modules
 
-models_to_run = testers
+models_to_run = main_models
 
 def run_pipelines() -> None:
     for config in models_to_run:

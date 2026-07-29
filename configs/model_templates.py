@@ -27,6 +27,7 @@ unfair_tos_teacher = ModelConfig(
     loss_type="bce_with_logits",
     model_name_or_path="nlpaueb/legal-bert-base-uncased",
 
+    batch_size = 4,
     epochs = 5,
 
     checkpoint_dir = "./datasets_store/checkpoints/unfair_tos_teacher",
@@ -59,6 +60,7 @@ unfair_tos_supervised_student_baseline = ModelConfig(
     loss_type="bce_with_logits",
     model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
 
+    batch_size = 4,
     epochs = 5,
 
     checkpoint_dir = "./datasets_store/checkpoints/unfair_tos_supervised_student",
@@ -95,6 +97,7 @@ unfair_tos_kd_student = ModelConfig(
     model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
     teacher=unfair_tos_teacher,
 
+    batch_size = 4,
     epochs = 5,
 
     kd_teacher_weight_schedule = "linear_epoch",
@@ -186,22 +189,6 @@ unfair_tos_kd_student_low_resource = ModelConfig(
 )
 
 # Three-seed final experiment configurations
-ledgar_supervised_student_final_seed_1 = ModelConfig(
-    task_name="ledgar",
-    num_labels=100,
-    problem_type="single_label",
-    loss_type="cross_entropy",
-    model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
-
-    batch_size=16,
-    epochs=5,
-    seed=42,
-
-    checkpoint_dir="./datasets_store/checkpoints/ledgar_supervised_student_final_seed_1",
-    output_dir="./datasets_store/ds_with_teacher_outputs/ledgar_supervised_student_final_seed_1_outputs",
-    unique_id_for_dir="FinalSeed1",
-    preprocessed_data_dir="raw",
-)
 
 ledgar_supervised_student_final_seed_2 = ModelConfig(
     task_name="ledgar",
@@ -237,21 +224,6 @@ ledgar_supervised_student_final_seed_3 = ModelConfig(
     preprocessed_data_dir="raw",
 )
 #---
-unfair_tos_supervised_student_final_seed_1 = ModelConfig(
-    task_name="unfair_tos",
-    num_labels=8,
-    problem_type="multi_label",
-    loss_type="bce_with_logits",
-    model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
-
-    epochs=5,
-    seed=42,
-
-    checkpoint_dir="./datasets_store/checkpoints/unfair_tos_supervised_student_final_seed_1",
-    output_dir="./datasets_store/ds_with_teacher_outputs/unfair_tos_supervised_student_final_seed_1_outputs",
-    unique_id_for_dir="FinalSeed1",
-    preprocessed_data_dir="raw",
-)
 
 unfair_tos_supervised_student_final_seed_2 = ModelConfig(
     task_name="unfair_tos",
@@ -260,6 +232,7 @@ unfair_tos_supervised_student_final_seed_2 = ModelConfig(
     loss_type="bce_with_logits",
     model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
 
+    batch_size=4,
     epochs=5,
     seed=43,
 
@@ -276,6 +249,7 @@ unfair_tos_supervised_student_final_seed_3 = ModelConfig(
     loss_type="bce_with_logits",
     model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
 
+    batch_size=4,
     epochs=5,
     seed=44,
 
@@ -285,26 +259,6 @@ unfair_tos_supervised_student_final_seed_3 = ModelConfig(
     preprocessed_data_dir="raw",
 )
 #---
-ledgar_kd_student_final_seed_1 = ModelConfig(
-    task_name="ledgar",
-    num_labels=100,
-    problem_type="single_label",
-    loss_type="kldiv",
-    model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
-    teacher=ledgar_teacher,
-
-    batch_size=16,
-    epochs=5,
-    seed=42,
-
-    kd_teacher_weight_schedule="linear_epoch",
-
-    checkpoint_dir="./datasets_store/checkpoints/ledgar_kd_student_final_seed_1",
-    output_dir="./datasets_store/ds_with_teacher_outputs/ledgar_kd_student_final_seed_1_outputs",
-    unique_id_for_dir="FinalSeed1",
-    preprocessed_data_dir="./datasets_store/ds_with_teacher_outputs/ledgar_teacher_outputs",
-)
-
 ledgar_kd_student_final_seed_2 = ModelConfig(
     task_name="ledgar",
     num_labels=100,
@@ -345,25 +299,7 @@ ledgar_kd_student_final_seed_3 = ModelConfig(
     preprocessed_data_dir="./datasets_store/ds_with_teacher_outputs/ledgar_teacher_outputs",
 )
 #---
-unfair_tos_kd_student_final_seed_1 = ModelConfig(
-    task_name="unfair_tos",
-    num_labels=8,
-    problem_type="multi_label",
-    loss_type="kldiv",
-    model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
-    teacher=unfair_tos_teacher,
 
-    epochs=5,
-    seed=42,
-
-    kd_teacher_weight_schedule="linear_epoch",
-
-    device="auto",
-    checkpoint_dir="./datasets_store/checkpoints/unfair_tos_kd_student_final_seed_1",
-    output_dir="./datasets_store/ds_with_teacher_outputs/unfair_tos_kd_student_final_seed_1_outputs",
-    unique_id_for_dir="FinalSeed1",
-    preprocessed_data_dir="./datasets_store/ds_with_teacher_outputs/unfair_tos_teacher_outputs",
-)
 
 unfair_tos_kd_student_final_seed_2 = ModelConfig(
     task_name="unfair_tos",
@@ -373,6 +309,7 @@ unfair_tos_kd_student_final_seed_2 = ModelConfig(
     model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
     teacher=unfair_tos_teacher,
 
+    batch_size=4,
     epochs=5,
     seed=43,
 
@@ -393,6 +330,7 @@ unfair_tos_kd_student_final_seed_3 = ModelConfig(
     model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
     teacher=unfair_tos_teacher,
 
+    batch_size=4,
     epochs=5,
     seed=44,
 
@@ -436,12 +374,6 @@ multi_task_kd_model_low_resource = MultiTaskModelConfig(
 )
 
 # Main Multi-task different SEED models
-multi_task_supervised_model_final_seed_1 = MultiTaskModelConfig(
-    ledgar_config=ledgar_supervised_student_final_seed_1,
-    unfair_tos_config=unfair_tos_supervised_student_final_seed_1,
-    unique_id_for_dir="multi_task_final_seed_1",
-)
-
 multi_task_supervised_model_final_seed_2 = MultiTaskModelConfig(
     ledgar_config=ledgar_supervised_student_final_seed_2,
     unfair_tos_config=unfair_tos_supervised_student_final_seed_2,
@@ -454,11 +386,6 @@ multi_task_supervised_model_final_seed_3 = MultiTaskModelConfig(
     unique_id_for_dir="multi_task_final_seed_3",
 )
 
-multi_task_kd_model_final_seed_1 = MultiTaskModelConfig(
-    ledgar_config=ledgar_kd_student_final_seed_1,
-    unfair_tos_config=unfair_tos_kd_student_final_seed_1,
-    unique_id_for_dir="multi_task_kd_final_seed_1",
-)
 
 multi_task_kd_model_final_seed_2 = MultiTaskModelConfig(
     ledgar_config=ledgar_kd_student_final_seed_2,
@@ -516,39 +443,45 @@ single_task_main_modules = [
     # Knowledge Distillation Students
         ledgar_kd_student,
         unfair_tos_kd_student,
+]
+
+single_task_low_ressource_models = [
     # Low-resource experiments
-        ledgar_supervised_student_low_resource,
-        unfair_tos_supervised_student_low_resource,
-        ledgar_kd_student_low_resource,
-        unfair_tos_kd_student_low_resource,
+    ledgar_supervised_student_low_resource,
+    unfair_tos_supervised_student_low_resource,
+    ledgar_kd_student_low_resource,
+    unfair_tos_kd_student_low_resource,
+]
+
+single_task_different_seed_models = [
     # Three-seed final experiments
-        ledgar_supervised_student_final_seed_1,
-        ledgar_supervised_student_final_seed_2,
-        ledgar_supervised_student_final_seed_3,
-        unfair_tos_supervised_student_final_seed_1,
-        unfair_tos_supervised_student_final_seed_2,
-        unfair_tos_supervised_student_final_seed_3,
-        ledgar_kd_student_final_seed_1,
-        ledgar_kd_student_final_seed_2,
-        ledgar_kd_student_final_seed_3,
-        unfair_tos_kd_student_final_seed_1,
-        unfair_tos_kd_student_final_seed_2,
-        unfair_tos_kd_student_final_seed_3,
+    ledgar_supervised_student_final_seed_2,
+    ledgar_supervised_student_final_seed_3,
+    
+    unfair_tos_supervised_student_final_seed_2,
+    unfair_tos_supervised_student_final_seed_3,
+    
+    ledgar_kd_student_final_seed_2,
+    ledgar_kd_student_final_seed_3,
+    
+    unfair_tos_kd_student_final_seed_2,
+    unfair_tos_kd_student_final_seed_3,
 ]
 
 multi_task_main_modules = [
-
     multi_task_supervised_model,
-    multi_task_kd_model,
+    multi_task_kd_model, 
+]
 
+multi_task_low_ressource_models =[
     multi_task_supervised_model_low_resource,
     multi_task_kd_model_low_resource,
+]
 
-    multi_task_supervised_model_final_seed_1,
+multi_task_different_seed_models = [
     multi_task_supervised_model_final_seed_2,
     multi_task_supervised_model_final_seed_3,
-
-    multi_task_kd_model_final_seed_1,
+    
     multi_task_kd_model_final_seed_2,
     multi_task_kd_model_final_seed_3,
 ]

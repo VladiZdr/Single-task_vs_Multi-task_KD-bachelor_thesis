@@ -110,7 +110,6 @@ def diagnostic_inspection_output_for_first_sample_of_train(split_name, num_sampl
     print(f"  Probabilities head: {[round(x, 4) for x in tensors['probabilities'][idx].tolist()]}")
 
 
-@staticmethod
 def verify_exports(directory_path: str, model:ModelConfig) -> dict[str, dict[str, object]]:
     """
     Scans the outputs folder, loads each generated SafeTensors split,
@@ -128,9 +127,6 @@ def verify_exports(directory_path: str, model:ModelConfig) -> dict[str, dict[str
 
     # Initializes summary dictionary and prints formatting headers per split file.
     for split_name, file_path in split_files.items():
-        if split_name != "train":
-            continue
-
         print("=" * 60)
         print(f"Found Exported File: {os.path.basename(file_path)}")
         print(f"Full Path:           {file_path}")
@@ -158,7 +154,7 @@ def verify_exports(directory_path: str, model:ModelConfig) -> dict[str, dict[str
         verify_probability_consistency(problem_type, tensors, num_samples, split_name)
 
         
-        diagnostic_inspection_output_for_first_sample_of_train(split_files["train"], num_samples, num_classes, expected_task, problem_type, tensors)
+        diagnostic_inspection_output_for_first_sample_of_train(split_name, num_samples, num_classes, expected_task, problem_type, tensors)
 
         # Records metadata summary for the split and returns verification_summary containing verified metrics across all splits.
         verification_summary[split_name] = {
