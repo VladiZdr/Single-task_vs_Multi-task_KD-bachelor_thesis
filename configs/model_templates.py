@@ -489,7 +489,7 @@ tfidf_unfair_tos = TfidfBaselineConfig(
     preprocessed_data_dir = "raw" # irrelevant -> will be overwritten later
 )
 
-tfidf_ledgar = ModelConfig(
+tfidf_ledgar = TfidfBaselineConfig(
     task_name="ledgar",
     num_labels=100,
     problem_type="single_label",

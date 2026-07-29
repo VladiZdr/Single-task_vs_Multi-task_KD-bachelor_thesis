@@ -239,6 +239,20 @@ tfidf_hidden_dim_tester = TfidfBaselineConfig(
     preprocessed_data_dir = "raw" # irrelevant -> will be overwritten later
 )
 
+tfidf_ledgar_tester = TfidfBaselineConfig(
+    task_name="ledgar",
+    num_labels=100,
+    problem_type="single_label",
+    loss_type="cross_entropy",
+    
+    model_name_or_path="tfidf_baseline",
+
+    batch_size = 16,
+    percent_of_data = 1,
+    
+    unique_id_for_dir = "tf_led_tester",
+    preprocessed_data_dir = "raw"
+)
 "------------------------------------------------------------------LISTS OF TEST MODULES----------------------------------------------------------------------------------"
 
 single_task_testers = [
@@ -266,5 +280,6 @@ multi_task_testers = [
 
 tf_idf_testers = [
     tfidf_tester,
-    tfidf_hidden_dim_tester
+    tfidf_hidden_dim_tester,
+    tfidf_ledgar_tester
 ]
