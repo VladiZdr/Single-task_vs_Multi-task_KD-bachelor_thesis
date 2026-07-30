@@ -40,7 +40,7 @@ class ModelConfig:
     # Knowledge Distillation Hyperparameters
     kd_teacher_weight_schedule: Literal["constant", "linear_epoch"] = "constant"
     kd_teacher_weight_start: float = 1.0
-    kd_teacher_weight_end: float = 0.0
+    kd_teacher_weight_end: float = 1.0
     
     # Hardware Routing
     device: Literal["auto", "cuda", "cpu"] = "auto"
