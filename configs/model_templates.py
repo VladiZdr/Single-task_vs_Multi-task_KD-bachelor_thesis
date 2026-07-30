@@ -435,11 +435,11 @@ tfidf_ledgar = TfidfBaselineConfig(
 
 single_task_main_modules = [
     # Teachers
-        ledgar_teacher,
-        unfair_tos_teacher,
+        #ledgar_teacher,
+        #unfair_tos_teacher,
     # Baseline Students
-        ledgar_supervised_student_baseline,
-        unfair_tos_supervised_student_baseline,
+        #ledgar_supervised_student_baseline,
+        #unfair_tos_supervised_student_baseline,
     # Knowledge Distillation Students
         ledgar_kd_student,
         unfair_tos_kd_student,
@@ -469,7 +469,7 @@ single_task_different_seed_models = [
 ]
 
 multi_task_main_modules = [
-    multi_task_supervised_model,
+    #multi_task_supervised_model,
     multi_task_kd_model, 
 ]
 
