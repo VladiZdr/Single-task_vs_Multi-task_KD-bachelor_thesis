@@ -1,36 +1,48 @@
-import os
+from __future__ import annotations
+
 import logging
-from typing import cast
+import os
+import random
+from typing import Dict, Tuple, cast
+
 from datasets import DatasetDict
-import torch 
 import numpy as np
-from typing import Tuple
+from scipy.sparse import csr_matrix
+import torch
 from torch.utils.data import DataLoader, Dataset
 from sklearn.feature_extraction.text import TfidfVectorizer
+
 from configs.model_configs import TfidfBaselineConfig
+from configs.model_templates import tf_idf_main_modules
+from configs.model_templates_testers import tf_idf_testers
 from datasets_manipulation.prepare_datasets import prep_dataset_from_raw
+from single_task.train_legal_model import seed_worker, set_all_seeds
 from tf_idf_baseline.tf_idf_model import TfidfModel
 from tf_idf_baseline.tf_idf_trainer import TfidfTrainer
-from single_task.train_legal_model import set_all_seeds, seed_worker
-from typing import cast
-from scipy.sparse import csr_matrix
-from configs.model_templates_testers import tf_idf_testers
-from configs.model_templates import tf_idf_main_modules
 
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    handlers=[logging.StreamHandler()],
+)
 logger = logging.getLogger("TfidfPipeline")
 
+
 class DictTensorDataset(Dataset):
-    def __init__(self, x_tensor: torch.Tensor, y_tensor: torch.Tensor):
+    def __init__(self, x_tensor: torch.Tensor, y_tensor: torch.Tensor) -> None:
         self.x = x_tensor
         self.y = y_tensor
-    def __len__(self):
+
+    def __len__(self) -> int:
         return len(self.x)
-    def __getitem__(self, idx: int):
+
+    def __getitem__(self, idx: int) -> Dict[str, torch.Tensor]:
         return {"input_ids": self.x[idx], "labels": self.y[idx]}
 
+
 def load_and_cache_tfidf_dataset(config: TfidfBaselineConfig) -> str:
-    """
-    Fits TfidfVectorizer EXCLUSIVELY on training texts to prevent data leakage.
+    """Fits TfidfVectorizer EXCLUSIVELY on training texts to prevent data leakage.
+
     Transforms train, val, and test splits into sparse matrices, converts to PyTorch FloatTensors,
     and caches the dictionary payload under config.preprocessed_data_dir.
     """
@@ -53,10 +65,10 @@ def load_and_cache_tfidf_dataset(config: TfidfBaselineConfig) -> str:
 
     logger.info(f"Fitting TfidfVectorizer (max_features={config.max_features}) on train split...")
     vectorizer = TfidfVectorizer(max_features=config.max_features)
-    
+
     X_train_sparse = cast(csr_matrix, vectorizer.fit_transform(train_texts))
-    X_val_sparse = cast(csr_matrix,vectorizer.transform(val_texts))
-    X_test_sparse = cast(csr_matrix,vectorizer.transform(test_texts))
+    X_val_sparse = cast(csr_matrix, vectorizer.transform(val_texts))
+    X_test_sparse = cast(csr_matrix, vectorizer.transform(test_texts))
 
     assert X_train_sparse.shape is not None
     feature_dim = X_train_sparse.shape[1]
@@ -76,35 +88,70 @@ def load_and_cache_tfidf_dataset(config: TfidfBaselineConfig) -> str:
     logger.info(f"Cached TF-IDF tensors successfully to {cache_path} with feature_dim={feature_dim}")
     return cache_path
 
-def prepare_dataloaders(config: TfidfBaselineConfig) -> Tuple[DataLoader, DataLoader, DataLoader, DataLoader, int]:
+
+def prepare_dataloaders(
+    config: TfidfBaselineConfig,
+) -> Tuple[DataLoader, DataLoader, DataLoader, DataLoader, int]:
     set_all_seeds(config.seed)
     cache_path = load_and_cache_tfidf_dataset(config)
-    data = torch.load(cache_path)
+    data = torch.load(cache_path, map_location="cpu")
 
-    if isinstance(data, dict):
-        train_x, train_y = data["train"]
-        val_x, val_y = data["val"]
-        test_x, test_y = data["test"]
-        feature_dim = int(data.get("feature_dim", train_x.shape[1]))
-    else:
-        train_x, train_y = data["train"]
-        val_x, val_y = data["val"]
-        test_x, test_y = data["test"]
-        feature_dim = int(train_x.shape[1])
+    if not isinstance(data, dict):
+        raise TypeError(f"Unexpected dataset format in cache file: {type(data)}")
+
+    train_x, train_y = data["train"]
+    val_x, val_y = data["val"]
+    test_x, test_y = data["test"]
+    feature_dim = int(data.get("feature_dim", train_x.shape[1]))
 
     train_ds = DictTensorDataset(train_x, train_y)
     val_ds = DictTensorDataset(val_x, val_y)
     test_ds = DictTensorDataset(test_x, test_y)
 
+    pin_memory = torch.cuda.is_available()
+    num_workers = getattr(config, "num_workers", 0)
+    persistent_workers = num_workers > 0
+
     generator = torch.Generator()
     generator.manual_seed(config.seed)
 
-    train_loader = DataLoader(train_ds, batch_size=config.batch_size, shuffle=True, generator=generator, worker_init_fn=seed_worker)
-    val_loader = DataLoader(val_ds, batch_size=config.batch_size, shuffle=False)
-    test_loader = DataLoader(test_ds, batch_size=config.batch_size, shuffle=False)
-    unshuffled_train_loader = DataLoader(train_ds, batch_size=config.batch_size, shuffle=False)
+    train_loader = DataLoader(
+        train_ds,
+        batch_size=config.batch_size,
+        shuffle=True,
+        generator=generator,
+        worker_init_fn=seed_worker,
+        pin_memory=pin_memory,
+        num_workers=num_workers,
+        persistent_workers=persistent_workers,
+    )
+    val_loader = DataLoader(
+        val_ds,
+        batch_size=config.batch_size,
+        shuffle=False,
+        pin_memory=pin_memory,
+        num_workers=num_workers,
+        persistent_workers=persistent_workers,
+    )
+    test_loader = DataLoader(
+        test_ds,
+        batch_size=config.batch_size,
+        shuffle=False,
+        pin_memory=pin_memory,
+        num_workers=num_workers,
+        persistent_workers=persistent_workers,
+    )
+    unshuffled_train_loader = DataLoader(
+        train_ds,
+        batch_size=config.batch_size,
+        shuffle=False,
+        pin_memory=pin_memory,
+        num_workers=num_workers,
+        persistent_workers=persistent_workers,
+    )
 
     return train_loader, val_loader, test_loader, unshuffled_train_loader, feature_dim
+
 
 def run_task_pipeline(config: TfidfBaselineConfig) -> None:
     logger.info(f"Running TF-IDF pipeline for {config.task_name}_{config.unique_id_for_dir}")
@@ -115,18 +162,24 @@ def run_task_pipeline(config: TfidfBaselineConfig) -> None:
 
     best_weights_path = trainer.fit(train_loader, val_loader)
     if best_weights_path and os.path.exists(best_weights_path):
+        logger.info(f"Reloading best model weights from {best_weights_path} for test evaluation...")
         model.load_state_dict(torch.load(best_weights_path, map_location=torch.device(config.device)))
         metrics = trainer.evaluate(test_loader)
         logger.info(f"Final Test Evaluation Metrics for {config.task_name}: {metrics}")
+    else:
+        logger.info(f"No checkpoint produced for {config.task_name}; skipping test evaluation.")
+
 
 testers = tf_idf_testers
 main_models = tf_idf_main_modules
 
-models_to_run = main_models
+models_to_run = testers
 
-def run_pipelines():
+
+def run_pipelines() -> None:
     for model in models_to_run:
         run_task_pipeline(model)
+
 
 if __name__ == "__main__":
     run_pipelines()

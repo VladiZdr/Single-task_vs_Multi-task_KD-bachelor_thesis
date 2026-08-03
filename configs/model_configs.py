@@ -24,7 +24,7 @@ class ModelConfig:
     percent_of_data: int = 100  
 
     # Optimization Hyperparameters
-    batch_size: int = 8
+    batch_size: int = 16
     learning_rate: float = 3e-5
     epochs: int = 1
     weight_decay: float = 0.01

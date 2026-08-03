@@ -1,15 +1,22 @@
 from __future__ import annotations
+
 import logging
 import random
-from typing import Dict
+from typing import Any, Dict, Tuple
+
 import numpy as np
 import torch
 from datasets import Dataset as HFDataset
 from datasets import DatasetDict
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, default_collate
+
 from configs.model_configs import ModelConfig, MultiTaskModelConfig
+from configs.model_templates import (
+    multi_task_different_seed_models,
+    multi_task_low_ressource_models,
+    multi_task_main_modules,
+)
 from configs.model_templates_testers import multi_task_testers
-from configs.model_templates import multi_task_main_modules, multi_task_different_seed_models, multi_task_low_ressource_models
 from datasets_manipulation.prepare_datasets import prep_dataset_from_raw, smart_load_dataset
 from multi_task.multi_task_model import MultiTaskModel
 from multi_task.multi_task_trainer import MultiTaskTrainer
@@ -21,6 +28,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger("MultiTaskFineTunePipeline")
 
+
 def set_all_seeds(seed: int = 42) -> None:
     random.seed(seed)
     np.random.seed(seed)
@@ -31,25 +39,28 @@ def set_all_seeds(seed: int = 42) -> None:
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
 
-# It ensures each independent background worker process gets its own distinct, reproducible random seed.
+
+# Ensures each independent background worker process gets its own distinct, reproducible random seed.
 def seed_worker(worker_id: int) -> None:
     worker_seed = torch.initial_seed() % 2**32
     np.random.seed(worker_seed)
     random.seed(worker_seed)
 
+
 # Injects a programmatic tracking token inline so the multi-task model knows which classification head to use during training.
-def attach_task_column(dataset, task_config: ModelConfig):
+def attach_task_column(dataset: HFDataset, task_config: ModelConfig) -> HFDataset:
     if "task" in dataset.column_names:
-            return dataset
+        return dataset
     return dataset.add_column("task", [task_config.task_name] * len(dataset))
 
-def get_dataset_splits(task_config: ModelConfig):
+
+def get_dataset_splits(task_config: ModelConfig) -> Tuple[HFDataset, HFDataset, HFDataset]:
     if task_config.preprocessed_data_dir == "raw":
         preprocessed, _ = prep_dataset_from_raw(task_config)
     else:
         preprocessed = smart_load_dataset(task_config)
-    
-    # It expects a standard Hugging Face dictionary containing split tables (train, validation, test)
+
+    # Expects a standard Hugging Face dictionary containing split tables (train, validation, test)
     if isinstance(preprocessed, DatasetDict):
         train_dataset = preprocessed["train"]
         val_dataset = preprocessed["validation"]
@@ -63,41 +74,95 @@ def get_dataset_splits(task_config: ModelConfig):
 
     return train_dataset, val_dataset, test_dataset
 
-def format_splits(train_dataset, val_dataset, test_dataset, task_config):
-    # Selects the required data columns.
-    cols = ["input_ids", "attention_mask", "token_type_ids", "labels", "task", "sample_index"]
-    if task_config.loss_type == "kldiv":
-        cols.append("logits")
-    
-    # Changes the dataset output format, transforming Hugging Face text storage spaces directly into active PyTorch Tensors
-    train_dataset.set_format(type="torch", columns=cols)
-    val_dataset.set_format(type="torch", columns=cols)
-    test_dataset.set_format(type="torch", columns=cols)
+
+def format_splits(
+    train_dataset: HFDataset,
+    val_dataset: HFDataset,
+    test_dataset: HFDataset,
+    task_config: ModelConfig,
+) -> None:
+    # Explicit numerical columns allowed for PyTorch Tensor conversion
+    tensor_candidates = {"input_ids", "attention_mask", "token_type_ids", "labels", "logits", "sample_index"}
+
+    requested_cols = ["input_ids", "attention_mask", "token_type_ids", "labels", "sample_index"]
+    if getattr(task_config, "loss_type", None) == "kldiv":
+        requested_cols.append("logits")
+
+    # Safely apply torch format ONLY to numerical columns that exist in each split
+    for ds in (train_dataset, val_dataset, test_dataset):
+        existing_cols = ds.column_names
+        valid_tensor_cols = [c for c in requested_cols if c in existing_cols and c in tensor_candidates]
+        ds.set_format(type="torch", columns=valid_tensor_cols)
+
+
+def build_task_collate_fn(task_name: str):
+    """Custom collate function that guarantees 'task' key exists in every collated batch."""
+    def collate_fn(batch: list[Dict[str, Any]]) -> Dict[str, Any]:
+        collated = default_collate(batch)
+        if "task" not in collated:
+            collated["task"] = [task_name] * len(batch)
+        return collated
+
+    return collate_fn
+
 
 def _load_split_dataloaders(task_config: ModelConfig) -> Dict[str, DataLoader]:
     set_all_seeds(task_config.seed)
 
     train_dataset, val_dataset, test_dataset = get_dataset_splits(task_config)
-        
+
     train_dataset = attach_task_column(train_dataset, task_config)
     val_dataset = attach_task_column(val_dataset, task_config)
     test_dataset = attach_task_column(test_dataset, task_config)
 
     format_splits(train_dataset, val_dataset, test_dataset, task_config)
-    
+
+    pin_memory = torch.cuda.is_available()
+    num_workers = getattr(task_config, "num_workers", 0)
+    persistent_workers = num_workers > 0
+    collate_fn = build_task_collate_fn(task_config.task_name)
+
     # Instantiates a standalone PyTorch random sampling generation object tied down strictly to your project seed.
     generator = torch.Generator()
     generator.manual_seed(task_config.seed)
 
-    # Wraps the structured datasets into iterable PyTorch streaming objects (DataLoader). 
-    # The training data is randomized using locked seed generator, while validation and testing data stream through sequentially (shuffle=False).
-    train_loader = DataLoader(train_dataset, batch_size=task_config.batch_size, shuffle=True, generator=generator, worker_init_fn=seed_worker) # type: ignore
-    val_loader = DataLoader(val_dataset, batch_size=task_config.batch_size, shuffle=False)                                                      # type: ignore
-    test_loader = DataLoader(test_dataset, batch_size=task_config.batch_size, shuffle=False)                                                    # type: ignore
+    # Wraps the structured datasets into iterable PyTorch streaming objects (DataLoader).
+    train_loader = DataLoader(
+        train_dataset,  # type: ignore
+        batch_size=task_config.batch_size,
+        shuffle=True,
+        generator=generator,
+        worker_init_fn=seed_worker,
+        pin_memory=pin_memory,
+        num_workers=num_workers,
+        persistent_workers=persistent_workers,
+        collate_fn=collate_fn,
+    )
+    val_loader = DataLoader(
+        val_dataset,  # type: ignore
+        batch_size=task_config.batch_size,
+        shuffle=False,
+        pin_memory=pin_memory,
+        num_workers=num_workers,
+        persistent_workers=persistent_workers,
+        collate_fn=collate_fn,
+    )
+    test_loader = DataLoader(
+        test_dataset,  # type: ignore
+        batch_size=task_config.batch_size,
+        shuffle=False,
+        pin_memory=pin_memory,
+        num_workers=num_workers,
+        persistent_workers=persistent_workers,
+        collate_fn=collate_fn,
+    )
 
     return {"train": train_loader, "validation": val_loader, "test": test_loader}
 
-def prepare_multitask_dataloaders(ledgar_config: ModelConfig,  unfair_tos_config: ModelConfig) -> tuple[dict[str, DataLoader], dict[str, DataLoader], dict[str, DataLoader]]:
+
+def prepare_multitask_dataloaders(
+    ledgar_config: ModelConfig, unfair_tos_config: ModelConfig
+) -> Tuple[Dict[str, DataLoader], Dict[str, DataLoader], Dict[str, DataLoader]]:
     set_all_seeds(ledgar_config.seed)
 
     ledgar_loaders = _load_split_dataloaders(ledgar_config)
@@ -108,6 +173,7 @@ def prepare_multitask_dataloaders(ledgar_config: ModelConfig,  unfair_tos_config
     test_loaders = {"ledgar": ledgar_loaders["test"], "unfair_tos": unfair_loaders["test"]}
 
     return train_loaders, val_loaders, test_loaders
+
 
 def run_multitask_pipeline(multitask_model_config: MultiTaskModelConfig) -> None:
     unique_id_for_dir = multitask_model_config.unique_id_for_dir
@@ -129,13 +195,13 @@ def run_multitask_pipeline(multitask_model_config: MultiTaskModelConfig) -> None
     model = MultiTaskModel(multitask_model_config)
     trainer = MultiTaskTrainer(model)
 
-    # If the model completes training and saves its parameters, it returns the disk location path. If no file is generated, it stops early.
+    # If the model completes training and saves its parameters, it returns the disk location path.
     best_weights_path = trainer.fit(train_loaders, val_loaders)
     if best_weights_path is None:
         logger.info("No multi-task checkpoint produced; skipping test evaluation.")
         return
 
-    # Testing evaluation. It loads the optimal saved weights back into the model architecture from disk and runs a final validation check across the untouched testing datasets.
+    # Testing evaluation: reload optimal saved weights back into the model architecture
     logger.info(f"Reloading best model weights from {best_weights_path} for test evaluation...")
     model.load_state_dict(torch.load(best_weights_path, map_location=torch.device(ledgar_config.device)))
     test_metrics = trainer.evaluate(test_loaders)
@@ -151,11 +217,12 @@ def run_multitask_pipeline(multitask_model_config: MultiTaskModelConfig) -> None
 
     logger.info("Multi-task pipeline successfully executed for %s.\n" + "=" * 80, unique_id_for_dir)
 
+
 testers = multi_task_testers
 main_models = multi_task_main_modules
 
-# Bundles paired task configuration objects into a structured execution queue array list.
-models_to_run = main_models
+models_to_run = testers
+
 
 def run_multitask_pipelines() -> None:
     for model in models_to_run:

@@ -11,7 +11,6 @@ ledgar_teacher_tester = ModelConfig(
 
     percent_of_data=1,  
 
-    batch_size = 16,
 
     unique_id_for_dir = "tester",
     preprocessed_data_dir = "raw"
@@ -26,7 +25,6 @@ unfair_tos_teacher_tester = ModelConfig(
 
     percent_of_data=1,  
     
-    batch_size=4,    
 
     unique_id_for_dir = "tester",
     preprocessed_data_dir = "raw"
@@ -42,7 +40,6 @@ unfair_tos_teacher_low_ressource_tester = ModelConfig(
     percent_of_data= 1,
     low_resource_percent=1,  
     
-    batch_size=4,    
 
     unique_id_for_dir = "low_ress_tester",
     preprocessed_data_dir = "raw"
@@ -58,7 +55,6 @@ ledgar_teacher_low_ressource_tester = ModelConfig(
     percent_of_data=15,  
     low_resource_percent=50,  
 
-    batch_size = 16,
 
     unique_id_for_dir = "low_ress_tester",
     preprocessed_data_dir = "raw"
@@ -72,7 +68,6 @@ ledgar_supervised_student_tester = ModelConfig(
     model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
 
     percent_of_data=1,
-    batch_size = 16,
 
     unique_id_for_dir = "supervised_student_tester",
     preprocessed_data_dir = "raw"
@@ -87,7 +82,6 @@ unfair_tos_supervised_student_tester = ModelConfig(
 
     percent_of_data=1,  
     
-    batch_size=4,
     
     unique_id_for_dir = "supervised_student_tester",
     preprocessed_data_dir = "raw"
@@ -102,7 +96,6 @@ unfair_tos_check_correct_load_preprocessed_dataset = ModelConfig(
 
     percent_of_data=1,  
     
-    batch_size=4,
     
     unique_id_for_dir = "check_correct_load",
     preprocessed_data_dir = "./datasets_store/unfair_tos_preprocessed"
@@ -118,7 +111,6 @@ unfair_tos_kd_student_tester = ModelConfig(
 
     percent_of_data=1,  
     
-    batch_size=4,
     epochs=2,
 
     kd_teacher_weight_schedule = "linear_epoch",
@@ -137,7 +129,6 @@ ledgar_kd_student_tester = ModelConfig(
 
     percent_of_data=1,  
 
-    batch_size = 16,
     epochs = 2,
 
     kd_teacher_weight_schedule = "linear_epoch",
@@ -156,7 +147,6 @@ unfair_tos_kd_check_correct_low_ressource = ModelConfig(
 
     low_resource_percent=1,  
     
-    batch_size=4,
     epochs=2,
 
     kd_teacher_weight_schedule = "linear_epoch",
@@ -175,7 +165,6 @@ ledgar_kd_check_correct_low_ressource = ModelConfig(
 
     low_resource_percent=1,  
 
-    batch_size = 16,
     epochs = 2,
 
     kd_teacher_weight_schedule = "linear_epoch",
@@ -216,7 +205,6 @@ tfidf_tester = TfidfBaselineConfig(
 
     percent_of_data=1,  
     
-    batch_size=4,    
 
     unique_id_for_dir = "tfidf_tester",
     preprocessed_data_dir = "raw" # irrelevant -> will be overwritten later
@@ -233,7 +221,6 @@ tfidf_hidden_dim_tester = TfidfBaselineConfig(
 
     percent_of_data=1,  
     
-    batch_size=4,    
 
     unique_id_for_dir = "tfidf_hidden_dim",
     preprocessed_data_dir = "raw" # irrelevant -> will be overwritten later
@@ -247,7 +234,6 @@ tfidf_ledgar_tester = TfidfBaselineConfig(
     
     model_name_or_path="tfidf_baseline",
 
-    batch_size = 16,
     percent_of_data = 1,
     
     unique_id_for_dir = "tf_led_tester",

@@ -8,6 +8,7 @@ from typing import Any, Dict
 import torch
 import torch.nn as nn
 from sklearn.metrics import f1_score
+from torch.cuda.amp import GradScaler, autocast
 from torch.optim import AdamW
 from torch.utils.data import DataLoader
 from tqdm import tqdm
@@ -22,11 +23,16 @@ logger = logging.getLogger(__name__)
 class MultiTaskTrainer:
     """Trainer for sequential multi-task fine-tuning across LEDGAR and UNFAIR-ToS."""
 
+    scaler: GradScaler
+
     def __init__(self, model: MultiTaskModel):
         self.model = model
         self.ledgar_config: ModelConfig = model.ledgar_config
         self.unfair_tos_config: ModelConfig = model.unfair_tos_config
-        self.task_configs: dict[str, ModelConfig] = {"ledgar": self.ledgar_config, "unfair_tos": self.unfair_tos_config,}
+        self.task_configs: dict[str, ModelConfig] = {
+            "ledgar": self.ledgar_config,
+            "unfair_tos": self.unfair_tos_config,
+        }
 
         self.checkpoint_path = f"./datasets_store/checkpoints/{self.model.unique_id_for_dir}"
         os.makedirs(self.checkpoint_path, exist_ok=True)
@@ -65,8 +71,7 @@ class MultiTaskTrainer:
             "KD teacher weight set to 0 for evaluation to ensure student performance is measured against ground-truth labels."
         )
 
-    # Scours incoming data dictionaries for a "task" descriptor key to understand what tracking path to use. 
-    # If missing, it raises a fatal error.
+    # Scours incoming data dictionaries for a "task" descriptor key to understand what tracking path to use.
     def _task_name_from_batch(self, batch: Dict[str, Any]) -> str:
         task_value = batch.get("task")
         if task_value is None:
@@ -91,7 +96,6 @@ class MultiTaskTrainer:
                 if isinstance(item, str):
                     extracted_tasks.append(item)
                 elif isinstance(item, (list, tuple)):
-                    # Handle byte-list sequences, e.g., [108, 101, 100, 103, 97, 114]
                     if item and all(isinstance(x, int) for x in item):
                         extracted_tasks.append(bytes([x for x in item if x != 0]).decode("utf-8", errors="ignore"))
                     else:
@@ -104,7 +108,7 @@ class MultiTaskTrainer:
                 raise ValueError(f"Mixed-task batches are not supported: {unique_tasks}")
             task_value = unique_tasks[0]
 
-        # 3. Enforce strict type checking for non-string raw values (e.g., {"task": 123})
+        # 3. Enforce strict type checking for non-string raw values
         if not isinstance(task_value, str):
             raise TypeError(f"Expected a string task label, got {type(task_value)!r}")
 
@@ -114,14 +118,12 @@ class MultiTaskTrainer:
 
         return task_value
 
-    def _prepare_batch(self, batch: Dict[str, torch.Tensor | list[str] | str]) -> Dict[str, torch.Tensor | str | None]:
+    def _prepare_batch(self, batch: Dict[str, Any]) -> Dict[str, torch.Tensor | str | None]:
         task_name = self._task_name_from_batch(batch)
         task_config = self.task_configs[task_name]
 
-        # Extracts data labels and pushes them onto the device. If the configuration states a task is multi_label 
-        # (classification containing multiple active classes), it formats parameters into a float(). 
-        # Otherwise, it converts them into a long() integer for classic single-choice multi-class operations.
-        labels = batch["labels"].to(self.device)        #type: ignore
+        # Enable non_blocking=True for fast async host-to-device transfers
+        labels = batch["labels"].to(self.device, non_blocking=True)  # type: ignore
         if task_config.problem_type == "multi_label":
             labels = labels.float()
         else:
@@ -129,25 +131,29 @@ class MultiTaskTrainer:
 
         token_type_ids = batch.get("token_type_ids")
         prepared: Dict[str, torch.Tensor | str | None] = {
-            "input_ids": batch["input_ids"].to(self.device),                                                 #type: ignore
-            "attention_mask": batch["attention_mask"].to(self.device),                                       #type: ignore
-            "token_type_ids": token_type_ids.to(self.device) if token_type_ids is not None else None,        #type: ignore
+            "input_ids": batch["input_ids"].to(self.device, non_blocking=True),  # type: ignore
+            "attention_mask": batch["attention_mask"].to(self.device, non_blocking=True),  # type: ignore
+            "token_type_ids": token_type_ids.to(self.device, non_blocking=True) if token_type_ids is not None else None,  # type: ignore
             "labels": labels,
             "task": task_name,
         }
 
         if "logits" in batch:
-            prepared["logits"] = batch["logits"].to(self.device)                                             #type: ignore
+            prepared["logits"] = batch["logits"].to(self.device, non_blocking=True)  # type: ignore
 
         return prepared
 
-    # Localizes reference links back out to the specified task's structural specifications and target loss modules.
-    def _compute_loss(self, task_name: str, logits: torch.Tensor, prepared_batch: Dict[str, torch.Tensor | str | None],) -> torch.Tensor:
+    def _compute_loss(
+        self,
+        task_name: str,
+        logits: torch.Tensor,
+        prepared_batch: Dict[str, torch.Tensor | str | None],
+    ) -> torch.Tensor:
         task_config = self.task_configs[task_name]
         criterion = self.criterions[task_name]
         labels = prepared_batch["labels"]
 
-        assert isinstance(labels, torch.Tensor)
+        assert isinstance(labels, torch.Tensor), "Labels must be a Tensor"
 
         if task_config.loss_type == "kldiv":
             teacher_logits = prepared_batch.get("logits")
@@ -159,15 +165,18 @@ class MultiTaskTrainer:
 
         return criterion(logits, labels)  # type: ignore[misc]
 
-    def train_epoch(self, train_loaders: Dict[str, DataLoader], optimizer: AdamW, scheduler: Any,) -> float:
+    def train_epoch(self, train_loaders: Dict[str, DataLoader], optimizer: AdamW, scheduler: Any) -> float:
         if not train_loaders:
             raise ValueError("Cannot train with no dataloaders")
 
         self.model.train()
-        total_loss = 0.0
+        total_loss = torch.zeros((), device=self.device)
         processed_batches = 0
 
-        # Filter and identify active task dataloaders in specified task order
+        use_amp = self.device.type == "cuda"
+        if not hasattr(self, "scaler"):
+            self.scaler = GradScaler(enabled=use_amp)
+
         active_tasks = [
             task
             for task in self.train_task_order
@@ -177,56 +186,61 @@ class MultiTaskTrainer:
         if not active_tasks:
             raise ValueError("Cannot train with no valid dataloaders")
 
-        # Initialize iterators and track remaining active tasks
         iterators = {task: iter(train_loaders[task]) for task in active_tasks}
         remaining_tasks = list(active_tasks)
         total_expected_batches = sum(len(train_loaders[task]) for task in active_tasks)
 
-        # Interleave batch execution with a unified progress bar
         with tqdm(total=total_expected_batches, desc="Multi-task Training (Round-Robin)") as pbar:
             while remaining_tasks:
                 for task in list(remaining_tasks):
                     try:
                         batch = next(iterators[task])
                     except StopIteration:
-                        # Datasets with fewer batches exhaust first; drop them and continue
                         remaining_tasks.remove(task)
                         continue
 
-                    # Wipes clean the historical backpropagation gradient parameters remaining from prior forward loops.
                     optimizer.zero_grad(set_to_none=True)
 
-                    # Extracts data items out of local CPU processing arrays, pushes them down into designated target accelerator platform
                     prepared = self._prepare_batch(batch)
                     labels = prepared["labels"]
                     batch_task = prepared["task"]
-                    assert isinstance(labels, torch.Tensor)
-                    assert isinstance(batch_task, str)
+                    input_ids = prepared["input_ids"]
+                    attention_mask = prepared["attention_mask"]
+                    token_type_ids = prepared["token_type_ids"]
 
-                    # Triggers the forward loop step across the shared Transformer network into specific active classification task target layer
-                    logits = self.model(prepared["input_ids"], prepared["attention_mask"], prepared["token_type_ids"], task=batch_task)
+                    assert isinstance(labels, torch.Tensor), "Labels must be a Tensor"
+                    assert isinstance(batch_task, str), "Task must be a string"
+                    assert isinstance(input_ids, torch.Tensor), "input_ids must be a Tensor"
+                    assert isinstance(attention_mask, torch.Tensor), "attention_mask must be a Tensor"
 
-                    assert logits.shape[0] == labels.shape[0], "Batch size mismatch"
-                    assert logits.shape[1] == self.task_configs[batch_task].num_labels, "Logit dimension mismatch"
+                    # AMP autocast forward pass
+                    with autocast(enabled=use_amp):
+                        logits = self.model(
+                            input_ids, 
+                            attention_mask, 
+                            token_type_ids, 
+                            task=batch_task
+                        )
+                        loss = self._compute_loss(batch_task, logits, prepared)
 
-                    #Extracts loss evaluation scores combining tracking indices and structural constraints altogether.
-                    loss = self._compute_loss(batch_task, logits, prepared)
-
-                    # Updates the model's weights: backpropagation -> caps exploding gradients -> updates the actual model parameters -> scales down the active learning rate over time
-                    loss.backward()
+                    # Scaled backward pass
+                    self.scaler.scale(loss).backward()
+                    self.scaler.unscale_(optimizer)
                     nn.utils.clip_grad_norm_(self.model.parameters(), self.ledgar_config.max_grad_norm)
-                    optimizer.step()
+                    self.scaler.step(optimizer)
+                    self.scaler.update()
+
                     scheduler.step()
 
-                    # Computes and returns the mean loss value across the entire training epoch loop.
-                    total_loss += float(loss.item())
+                    # GPU-side loss tracking
+                    total_loss += loss.detach()
                     processed_batches += 1
                     pbar.update(1)
 
         if processed_batches == 0:
             raise ValueError("No batches were processed during multi-task training")
 
-        return total_loss / processed_batches
+        return (total_loss / processed_batches).item()
 
     @torch.no_grad()
     def evaluate(self, dataloaders: Dict[str, DataLoader]) -> Dict[str, float]:
@@ -234,8 +248,9 @@ class MultiTaskTrainer:
             raise ValueError("Cannot evaluate with no dataloaders")
 
         self.model.eval()
-        overall_loss = 0.0
+        overall_loss = torch.zeros((), device=self.device)
         overall_batches = 0
+        use_amp = self.device.type == "cuda"
 
         task_results: dict[str, dict[str, float]] = {}
 
@@ -244,7 +259,7 @@ class MultiTaskTrainer:
             if dataloader is None or len(dataloader) == 0:
                 continue
 
-            task_loss = 0.0
+            task_loss = torch.zeros((), device=self.device)
             task_batches = 0
             all_preds = []
             all_labels = []
@@ -253,31 +268,45 @@ class MultiTaskTrainer:
                 prepared = self._prepare_batch(batch)
                 labels = prepared["labels"]
                 task = prepared["task"]
-                assert isinstance(labels, torch.Tensor)
-                assert isinstance(task, str)
+                input_ids = prepared["input_ids"]
+                attention_mask = prepared["attention_mask"]
+                token_type_ids = prepared["token_type_ids"]
 
-                logits = self.model(prepared["input_ids"], prepared["attention_mask"], prepared["token_type_ids"], task=task)
+                assert isinstance(labels, torch.Tensor), "Labels must be a Tensor"
+                assert isinstance(task, str), "Task must be a string"
+                assert isinstance(input_ids, torch.Tensor), "input_ids must be a Tensor"
+                assert isinstance(attention_mask, torch.Tensor), "attention_mask must be a Tensor"
 
-                loss = self._compute_loss(task, logits, prepared)
-                task_loss += float(loss.item())
-                overall_loss += float(loss.item())
+                with autocast(enabled=use_amp):
+                    logits = self.model(
+                        input_ids, 
+                        attention_mask, 
+                        token_type_ids, 
+                        task=task
+                    )
+                    loss = self._compute_loss(task, logits, prepared)
+
+                task_loss += loss.detach()
+                overall_loss += loss.detach()
 
                 if self.task_configs[task].problem_type == "multi_label":
-                    preds = (torch.sigmoid(logits) >= 0.5).int().cpu().numpy()
+                    preds = (torch.sigmoid(logits) >= 0.5).int()
                 else:
-                    preds = torch.argmax(logits, dim=-1).cpu().numpy()
+                    preds = torch.argmax(logits, dim=-1)
 
-                #Appends batch arrays to global history lists to prepare for metric scoring.
-                all_preds.extend(preds)
-                all_labels.extend(labels.detach().cpu().numpy())
+                all_preds.append(preds.cpu())
+                all_labels.append(labels.cpu())
 
                 task_batches += 1
                 overall_batches += 1
 
+            full_preds = torch.cat(all_preds, dim=0).numpy()
+            full_labels = torch.cat(all_labels, dim=0).numpy()
+
             task_results[task_name] = {
-                "loss": task_loss / task_batches,
-                "macro_f1": float(f1_score(all_labels, all_preds, average="macro", zero_division=0)),
-                "micro_f1": float(f1_score(all_labels, all_preds, average="micro", zero_division=0)),
+                "loss": (task_loss / task_batches).item(),
+                "macro_f1": float(f1_score(full_labels, full_preds, average="macro", zero_division=0)),
+                "micro_f1": float(f1_score(full_labels, full_preds, average="micro", zero_division=0)),
             }
 
         if not task_results:
@@ -287,7 +316,7 @@ class MultiTaskTrainer:
         micro_f1 = sum(result["micro_f1"] for result in task_results.values()) / len(task_results)
 
         metrics: Dict[str, float] = {
-            "loss": overall_loss / overall_batches,
+            "loss": (overall_loss / overall_batches).item(),
             "macro_f1": macro_f1,
             "micro_f1": micro_f1,
         }
@@ -316,17 +345,10 @@ class MultiTaskTrainer:
             },
         ]
 
-        # Sets up the weight optimization framework using the selected learning rate.
         optimizer = AdamW(optimizer_grouped_parameters, lr=self.ledgar_config.learning_rate)
 
-        # Dynamically calculates the exact number of forward updates that will run across all sub-loaders.
-        effective_train_batches = 0
-        for loader in train_loaders.values():
-            loader_batches = len(loader)
-            effective_train_batches += loader_batches
+        effective_train_batches = sum(len(loader) for loader in train_loaders.values())
 
-        # Sets up a linear learning rate scheduler. It gradually ramps up the learning rate during the initial warm-up period, 
-        # and then tapers it off to zero as it approaches total step capacity.
         total_steps = effective_train_batches * self.ledgar_config.epochs
         warmup_steps = int(total_steps * self.ledgar_config.warmup_ratio)
         scheduler = get_linear_schedule_with_warmup(
@@ -338,8 +360,6 @@ class MultiTaskTrainer:
         best_macro_f1 = -inf
         best_checkpoint_path = os.path.join(self.checkpoint_path, "best_multi_task_model.pt")
 
-        # Every epoch updates the distillation teacher weight parameter, trains across both tasks sequentially, 
-        # turns off distillation targets, and runs an evaluation loop over validation data.
         for epoch in range(self.ledgar_config.epochs):
             logger.info(f"Epoch {epoch + 1}/{self.ledgar_config.epochs}")
 

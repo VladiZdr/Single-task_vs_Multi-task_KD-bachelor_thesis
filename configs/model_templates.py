@@ -11,7 +11,6 @@ ledgar_teacher = ModelConfig(
     loss_type="cross_entropy",
     model_name_or_path="nlpaueb/legal-bert-base-uncased",
 
-    batch_size = 16,
     epochs = 5,
     
     checkpoint_dir = "./datasets_store/checkpoints/ledgar_teacher",
@@ -27,7 +26,6 @@ unfair_tos_teacher = ModelConfig(
     loss_type="bce_with_logits",
     model_name_or_path="nlpaueb/legal-bert-base-uncased",
 
-    batch_size = 4,
     epochs = 5,
 
     checkpoint_dir = "./datasets_store/checkpoints/unfair_tos_teacher",
@@ -44,7 +42,6 @@ ledgar_supervised_student_baseline = ModelConfig(
     loss_type="cross_entropy",
     model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
 
-    batch_size = 16,
     epochs = 5,
 
     checkpoint_dir = "./datasets_store/checkpoints/ledgar_supervised_student",
@@ -60,7 +57,6 @@ unfair_tos_supervised_student_baseline = ModelConfig(
     loss_type="bce_with_logits",
     model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
 
-    batch_size = 4,
     epochs = 5,
 
     checkpoint_dir = "./datasets_store/checkpoints/unfair_tos_supervised_student",
@@ -78,7 +74,6 @@ ledgar_kd_student = ModelConfig(
     model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
     teacher=ledgar_teacher,
 
-    batch_size = 16,
     epochs = 5,
 
     kd_teacher_weight_schedule = "linear_epoch",
@@ -97,7 +92,6 @@ unfair_tos_kd_student = ModelConfig(
     model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
     teacher=unfair_tos_teacher,
 
-    batch_size = 4,
     epochs = 5,
 
     kd_teacher_weight_schedule = "linear_epoch",
@@ -120,7 +114,6 @@ ledgar_supervised_student_low_resource = ModelConfig(
     model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
 
     low_resource_percent=50,
-    batch_size=16,
     epochs=5,
 
     checkpoint_dir="./datasets_store/checkpoints/ledgar_supervised_student_low_resource",
@@ -137,7 +130,6 @@ unfair_tos_supervised_student_low_resource = ModelConfig(
     model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
 
     low_resource_percent=50,
-    batch_size=4,
     epochs=5,
 
     checkpoint_dir="./datasets_store/checkpoints/unfair_tos_supervised_student_low_resource",
@@ -155,7 +147,6 @@ ledgar_kd_student_low_resource = ModelConfig(
     teacher=ledgar_teacher,
 
     low_resource_percent=50,
-    batch_size=16,
     epochs=5,
 
     kd_teacher_weight_schedule="linear_epoch",
@@ -197,7 +188,6 @@ ledgar_supervised_student_final_seed_2 = ModelConfig(
     loss_type="cross_entropy",
     model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
 
-    batch_size=16,
     epochs=5,
     seed=43,
 
@@ -214,7 +204,6 @@ ledgar_supervised_student_final_seed_3 = ModelConfig(
     loss_type="cross_entropy",
     model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
 
-    batch_size=16,
     epochs=5,
     seed=44,
 
@@ -232,7 +221,6 @@ unfair_tos_supervised_student_final_seed_2 = ModelConfig(
     loss_type="bce_with_logits",
     model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
 
-    batch_size=4,
     epochs=5,
     seed=43,
 
@@ -249,7 +237,6 @@ unfair_tos_supervised_student_final_seed_3 = ModelConfig(
     loss_type="bce_with_logits",
     model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
 
-    batch_size=4,
     epochs=5,
     seed=44,
 
@@ -267,7 +254,6 @@ ledgar_kd_student_final_seed_2 = ModelConfig(
     model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
     teacher=ledgar_teacher,
 
-    batch_size=16,
     epochs=5,
     seed=43,
 
@@ -287,7 +273,6 @@ ledgar_kd_student_final_seed_3 = ModelConfig(
     model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
     teacher=ledgar_teacher,
 
-    batch_size=16,
     epochs=5,
     seed=44,
 
@@ -309,7 +294,6 @@ unfair_tos_kd_student_final_seed_2 = ModelConfig(
     model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
     teacher=unfair_tos_teacher,
 
-    batch_size=4,
     epochs=5,
     seed=43,
 
@@ -330,7 +314,6 @@ unfair_tos_kd_student_final_seed_3 = ModelConfig(
     model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
     teacher=unfair_tos_teacher,
 
-    batch_size=4,
     epochs=5,
     seed=44,
 
@@ -410,7 +393,6 @@ tfidf_unfair_tos = TfidfBaselineConfig(
     model_name_or_path="tfidf_baseline", # !!!! important for data processing !!!!
 
     epochs=5,    
-    batch_size=4,    
 
     unique_id_for_dir = "tfidf_unfair_tos",
     preprocessed_data_dir = "raw" # irrelevant -> will be overwritten later
@@ -424,7 +406,6 @@ tfidf_ledgar = TfidfBaselineConfig(
     
     model_name_or_path="tfidf_baseline",
 
-    batch_size = 16,
     epochs = 5,
     
     unique_id_for_dir = "tfidf_ledgar",
