@@ -221,7 +221,7 @@ def run_multitask_pipeline(multitask_model_config: MultiTaskModelConfig) -> None
 testers = multi_task_testers
 main_models = multi_task_main_modules
 
-models_to_run = testers
+models_to_run = main_models
 
 
 def run_multitask_pipelines() -> None:

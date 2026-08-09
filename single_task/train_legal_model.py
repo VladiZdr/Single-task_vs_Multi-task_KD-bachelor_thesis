@@ -293,7 +293,7 @@ def run_task_pipeline(task_config: ModelConfig) -> None:
 testers = single_task_testers
 main_models = single_task_main_modules
 
-models_to_run = testers
+models_to_run = main_models
 
 
 def run_pipelines() -> None:

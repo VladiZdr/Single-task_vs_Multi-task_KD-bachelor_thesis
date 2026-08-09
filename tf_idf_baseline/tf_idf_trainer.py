@@ -119,7 +119,7 @@ class TfidfTrainer:
             total_loss += loss.detach()
 
             if self.config.problem_type == "multi_label":
-                preds = (torch.sigmoid(logits) >= 0.5).int()
+                preds = (torch.sigmoid(logits) >= 0.3).int()
             else:
                 preds = torch.argmax(logits, dim=-1)
 
