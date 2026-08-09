@@ -105,6 +105,84 @@ unfair_tos_kd_student = ModelConfig(
     preprocessed_data_dir = "./datasets_store/ds_with_teacher_outputs/unfair_tos_teacher_outputs"
 )
 
+# Constant 0.5 Teacher Weight Baselines
+ledgar_kd_student_mix_05 = ModelConfig(
+    task_name="ledgar",
+    num_labels=100,
+    problem_type="single_label",
+    loss_type="kldiv",
+    model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
+    teacher=ledgar_teacher,
+    epochs=10,
+    
+    kd_teacher_weight_schedule="constant",
+    kd_teacher_weight_start=0.5,
+    
+    checkpoint_dir="./datasets_store/checkpoints/ledgar_kd_student_mix_05",
+    output_dir="./datasets_store/ds_with_teacher_outputs/ledgar_kd_student_mix_05_outputs",
+    unique_id_for_dir="Mix_05",
+    preprocessed_data_dir="./datasets_store/ds_with_teacher_outputs/ledgar_teacher_outputs"
+)
+
+unfair_tos_kd_student_mix_05 = ModelConfig(
+    task_name="unfair_tos",
+    num_labels=8,
+    problem_type="multi_label",
+    loss_type="kldiv",
+    model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
+    teacher=unfair_tos_teacher,
+    epochs=10,
+    
+    kd_teacher_weight_schedule="constant",
+    kd_teacher_weight_start=0.5,
+    
+    device="auto",
+    seed=42,
+    checkpoint_dir="./datasets_store/checkpoints/unfair_tos_kd_student_mix_05",
+    output_dir="./datasets_store/ds_with_teacher_outputs/unfair_tos_kd_student_mix_05_outputs",
+    unique_id_for_dir="Mix_05",
+    preprocessed_data_dir="./datasets_store/ds_with_teacher_outputs/unfair_tos_teacher_outputs"
+)
+
+# Constant 0.7 Teacher Weight Baselines
+ledgar_kd_student_mix_07 = ModelConfig(
+    task_name="ledgar",
+    num_labels=100,
+    problem_type="single_label",
+    loss_type="kldiv",
+    model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
+    teacher=ledgar_teacher,
+    epochs=10,
+    
+    kd_teacher_weight_schedule="constant",
+    kd_teacher_weight_start=0.7,
+    
+    checkpoint_dir="./datasets_store/checkpoints/ledgar_kd_student_mix_07",
+    output_dir="./datasets_store/ds_with_teacher_outputs/ledgar_kd_student_mix_07_outputs",
+    unique_id_for_dir="Mix_07",
+    preprocessed_data_dir="./datasets_store/ds_with_teacher_outputs/ledgar_teacher_outputs"
+)
+
+unfair_tos_kd_student_mix_07 = ModelConfig(
+    task_name="unfair_tos",
+    num_labels=8,
+    problem_type="multi_label",
+    loss_type="kldiv",
+    model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
+    teacher=unfair_tos_teacher,
+    epochs=10,
+    
+    kd_teacher_weight_schedule="constant",
+    kd_teacher_weight_start=0.7,
+    
+    device="auto",
+    seed=42,
+    checkpoint_dir="./datasets_store/checkpoints/unfair_tos_kd_student_mix_07",
+    output_dir="./datasets_store/ds_with_teacher_outputs/unfair_tos_kd_student_mix_07_outputs",
+    unique_id_for_dir="Mix_07",
+    preprocessed_data_dir="./datasets_store/ds_with_teacher_outputs/unfair_tos_teacher_outputs"
+)
+
 # Low-resource experiment configurations
 ledgar_supervised_student_low_resource = ModelConfig(
     task_name="ledgar",
@@ -356,6 +434,18 @@ multi_task_kd_model_low_resource = MultiTaskModelConfig(
     unique_id_for_dir="multi_task_low_resource_kd",
 )
 
+multi_task_kd_model_mix_05 = MultiTaskModelConfig(
+    ledgar_config=ledgar_kd_student_mix_05,
+    unfair_tos_config=unfair_tos_kd_student_mix_05,
+    unique_id_for_dir="multi_task_kd_mix_05"
+)
+
+multi_task_kd_model_mix_07 = MultiTaskModelConfig(
+    ledgar_config=ledgar_kd_student_mix_07,
+    unfair_tos_config=unfair_tos_kd_student_mix_07,
+    unique_id_for_dir="multi_task_kd_mix_07"
+)
+
 # Main Multi-task different SEED models
 multi_task_supervised_model_final_seed_2 = MultiTaskModelConfig(
     ledgar_config=ledgar_supervised_student_final_seed_2,
@@ -424,6 +514,11 @@ single_task_main_modules = [
     # Knowledge Distillation Students
         ledgar_kd_student,
         unfair_tos_kd_student,
+    # Constant 0.5 and 0.7 Teacher Weight Baselines
+        ledgar_kd_student_mix_05,
+        unfair_tos_kd_student_mix_05,
+        ledgar_kd_student_mix_07,
+        unfair_tos_kd_student_mix_07,
 ]
 
 single_task_low_ressource_models = [
@@ -450,8 +545,10 @@ single_task_different_seed_models = [
 ]
 
 multi_task_main_modules = [
-    #multi_task_supervised_model,
-    multi_task_kd_model, 
+    multi_task_supervised_model,
+    multi_task_kd_model,
+    multi_task_kd_model_mix_05,
+    multi_task_kd_model_mix_07, 
 ]
 
 multi_task_low_ressource_models =[

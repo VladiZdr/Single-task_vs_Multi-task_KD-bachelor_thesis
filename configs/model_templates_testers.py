@@ -173,6 +173,79 @@ ledgar_kd_check_correct_low_ressource = ModelConfig(
     preprocessed_data_dir = "./datasets_store/ds_with_teacher_outputs/ledgar_teacher_outputs_tester"
 )
 
+# Constant 0.5 Teacher Weight Testers
+ledgar_kd_mix_05_tester = ModelConfig(
+    task_name="ledgar",
+    num_labels=100,
+    problem_type="single_label",
+    loss_type="kldiv",
+    model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
+    teacher=ledgar_teacher_tester,
+    
+    percent_of_data=1,
+    epochs=2,
+    
+    kd_teacher_weight_schedule="constant",
+    kd_teacher_weight_start=0.5,
+    
+    unique_id_for_dir="mix_05_tester",
+    preprocessed_data_dir="./datasets_store/ds_with_teacher_outputs/ledgar_teacher_outputs_tester"
+)
+
+unfair_tos_kd_mix_05_tester = ModelConfig(
+    task_name="unfair_tos",
+    num_labels=8,
+    problem_type="multi_label",
+    loss_type="kldiv",
+    model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
+    teacher=unfair_tos_teacher_tester,
+    
+    percent_of_data=1,
+    epochs=2,
+    
+    kd_teacher_weight_schedule="constant",
+    kd_teacher_weight_start=0.5,
+    
+    unique_id_for_dir="mix_05_tester",
+    preprocessed_data_dir="./datasets_store/ds_with_teacher_outputs/unfair_tos_teacher_outputs_tester"
+)
+
+# Constant 0.7 Teacher Weight Testers
+ledgar_kd_mix_07_tester = ModelConfig(
+    task_name="ledgar",
+    num_labels=100,
+    problem_type="single_label",
+    loss_type="kldiv",
+    model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
+    teacher=ledgar_teacher_tester,
+    
+    percent_of_data=1,
+    epochs=2,
+    
+    kd_teacher_weight_schedule="constant",
+    kd_teacher_weight_start=0.7,
+    
+    unique_id_for_dir="mix_07_tester",
+    preprocessed_data_dir="./datasets_store/ds_with_teacher_outputs/ledgar_teacher_outputs_tester"
+)
+
+unfair_tos_kd_mix_07_tester = ModelConfig(
+    task_name="unfair_tos",
+    num_labels=8,
+    problem_type="multi_label",
+    loss_type="kldiv",
+    model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
+    teacher=unfair_tos_teacher_tester,
+    
+    percent_of_data=1,
+    epochs=2,
+    
+    kd_teacher_weight_schedule="constant",
+    kd_teacher_weight_start=0.7,
+    
+    unique_id_for_dir="mix_07_tester",
+    preprocessed_data_dir="./datasets_store/ds_with_teacher_outputs/unfair_tos_teacher_outputs_tester"
+)
 "----------------------------------------------------------------MULTI-TASK CONFIGURATIONS----------------------------------------------------------------------------"
 
 multi_task_kd_model_tester = MultiTaskModelConfig(
@@ -191,6 +264,18 @@ multi_task_check_low_resource = MultiTaskModelConfig(
     ledgar_config = ledgar_kd_check_correct_low_ressource,
     unfair_tos_config = unfair_tos_kd_check_correct_low_ressource,
     unique_id_for_dir = "multi_task_low_res_tester"
+)
+
+multi_task_kd_mix_05_tester = MultiTaskModelConfig(
+    ledgar_config=ledgar_kd_mix_05_tester,
+    unfair_tos_config=unfair_tos_kd_mix_05_tester,
+    unique_id_for_dir="mt_mix_05_tester"
+)
+
+multi_task_kd_mix_07_tester = MultiTaskModelConfig(
+    ledgar_config=ledgar_kd_mix_07_tester,
+    unfair_tos_config=unfair_tos_kd_mix_07_tester,
+    unique_id_for_dir="mt_mix_07_tester"
 )
 
 "--------------------------------------------------------------------TF-IDF BASELINE----------------------------------------------------------------------------------"
@@ -256,12 +341,22 @@ single_task_testers = [
     
     unfair_tos_kd_student_tester,
     ledgar_kd_student_tester,
+
+    ledgar_kd_mix_05_tester,
+    unfair_tos_kd_mix_05_tester,
+    ledgar_kd_mix_07_tester,
+    unfair_tos_kd_mix_07_tester,
 ]
 
 multi_task_testers = [
     multi_task_kd_model_tester,
+    
     multi_task_supervised_model_tester,
+
     #multi_task_check_low_resource,
+
+    multi_task_kd_mix_05_tester,
+    multi_task_kd_mix_07_tester,
 ]
 
 tf_idf_testers = [
