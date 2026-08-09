@@ -11,7 +11,7 @@ ledgar_teacher = ModelConfig(
     loss_type="cross_entropy",
     model_name_or_path="nlpaueb/legal-bert-base-uncased",
 
-    epochs = 5,
+    epochs = 10,
     
     checkpoint_dir = "./datasets_store/checkpoints/ledgar_teacher",
     output_dir = "./datasets_store/ds_with_teacher_outputs/ledgar_teacher_outputs",
@@ -26,7 +26,7 @@ unfair_tos_teacher = ModelConfig(
     loss_type="bce_with_logits",
     model_name_or_path="nlpaueb/legal-bert-base-uncased",
 
-    epochs = 5,
+    epochs = 10,
 
     checkpoint_dir = "./datasets_store/checkpoints/unfair_tos_teacher",
     output_dir = "./datasets_store/ds_with_teacher_outputs/unfair_tos_teacher_outputs",
@@ -42,7 +42,7 @@ ledgar_supervised_student_baseline = ModelConfig(
     loss_type="cross_entropy",
     model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
 
-    epochs = 5,
+    epochs = 10,
 
     checkpoint_dir = "./datasets_store/checkpoints/ledgar_supervised_student",
     output_dir = "./datasets_store/ds_with_teacher_outputs/ledgar_supervised_student_outputs",
@@ -57,7 +57,7 @@ unfair_tos_supervised_student_baseline = ModelConfig(
     loss_type="bce_with_logits",
     model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
 
-    epochs = 5,
+    epochs = 10,
 
     checkpoint_dir = "./datasets_store/checkpoints/unfair_tos_supervised_student",
     output_dir = "./datasets_store/ds_with_teacher_outputs/unfair_tos_supervised_student_outputs",
@@ -74,7 +74,7 @@ ledgar_kd_student = ModelConfig(
     model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
     teacher=ledgar_teacher,
 
-    epochs = 5,
+    epochs = 10,
 
     kd_teacher_weight_schedule = "linear_epoch",
     
@@ -92,7 +92,7 @@ unfair_tos_kd_student = ModelConfig(
     model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
     teacher=unfair_tos_teacher,
 
-    epochs = 5,
+    epochs = 10,
 
     kd_teacher_weight_schedule = "linear_epoch",
 
@@ -114,7 +114,7 @@ ledgar_supervised_student_low_resource = ModelConfig(
     model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
 
     low_resource_percent=50,
-    epochs=5,
+    epochs=10,
 
     checkpoint_dir="./datasets_store/checkpoints/ledgar_supervised_student_low_resource",
     output_dir="./datasets_store/ds_with_teacher_outputs/ledgar_supervised_student_low_resource_outputs",
@@ -130,7 +130,7 @@ unfair_tos_supervised_student_low_resource = ModelConfig(
     model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
 
     low_resource_percent=50,
-    epochs=5,
+    epochs=10,
 
     checkpoint_dir="./datasets_store/checkpoints/unfair_tos_supervised_student_low_resource",
     output_dir="./datasets_store/ds_with_teacher_outputs/unfair_tos_supervised_student_low_resource_outputs",
@@ -147,7 +147,7 @@ ledgar_kd_student_low_resource = ModelConfig(
     teacher=ledgar_teacher,
 
     low_resource_percent=50,
-    epochs=5,
+    epochs=10,
 
     kd_teacher_weight_schedule="linear_epoch",
 
@@ -166,7 +166,7 @@ unfair_tos_kd_student_low_resource = ModelConfig(
     teacher=unfair_tos_teacher,
 
     low_resource_percent=50,
-    epochs=5,
+    epochs=10,
 
     kd_teacher_weight_schedule="linear_epoch",
 
@@ -188,7 +188,7 @@ ledgar_supervised_student_final_seed_2 = ModelConfig(
     loss_type="cross_entropy",
     model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
 
-    epochs=5,
+    epochs=10,
     seed=43,
 
     checkpoint_dir="./datasets_store/checkpoints/ledgar_supervised_student_final_seed_2",
@@ -204,7 +204,7 @@ ledgar_supervised_student_final_seed_3 = ModelConfig(
     loss_type="cross_entropy",
     model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
 
-    epochs=5,
+    epochs=10,
     seed=44,
 
     checkpoint_dir="./datasets_store/checkpoints/ledgar_supervised_student_final_seed_3",
@@ -221,7 +221,7 @@ unfair_tos_supervised_student_final_seed_2 = ModelConfig(
     loss_type="bce_with_logits",
     model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
 
-    epochs=5,
+    epochs=10,
     seed=43,
 
     checkpoint_dir="./datasets_store/checkpoints/unfair_tos_supervised_student_final_seed_2",
@@ -237,7 +237,7 @@ unfair_tos_supervised_student_final_seed_3 = ModelConfig(
     loss_type="bce_with_logits",
     model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
 
-    epochs=5,
+    epochs=10,
     seed=44,
 
     checkpoint_dir="./datasets_store/checkpoints/unfair_tos_supervised_student_final_seed_3",
@@ -254,7 +254,7 @@ ledgar_kd_student_final_seed_2 = ModelConfig(
     model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
     teacher=ledgar_teacher,
 
-    epochs=5,
+    epochs=10,
     seed=43,
 
     kd_teacher_weight_schedule="linear_epoch",
@@ -273,7 +273,7 @@ ledgar_kd_student_final_seed_3 = ModelConfig(
     model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
     teacher=ledgar_teacher,
 
-    epochs=5,
+    epochs=10,
     seed=44,
 
     kd_teacher_weight_schedule="linear_epoch",
@@ -294,7 +294,7 @@ unfair_tos_kd_student_final_seed_2 = ModelConfig(
     model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
     teacher=unfair_tos_teacher,
 
-    epochs=5,
+    epochs=10,
     seed=43,
 
     kd_teacher_weight_schedule="linear_epoch",
@@ -314,7 +314,7 @@ unfair_tos_kd_student_final_seed_3 = ModelConfig(
     model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
     teacher=unfair_tos_teacher,
 
-    epochs=5,
+    epochs=10,
     seed=44,
 
     kd_teacher_weight_schedule="linear_epoch",
@@ -392,7 +392,7 @@ tfidf_unfair_tos = TfidfBaselineConfig(
 
     model_name_or_path="tfidf_baseline", # !!!! important for data processing !!!!
 
-    epochs=5,    
+    epochs=10,    
 
     unique_id_for_dir = "tfidf_unfair_tos",
     preprocessed_data_dir = "raw" # irrelevant -> will be overwritten later
@@ -406,7 +406,7 @@ tfidf_ledgar = TfidfBaselineConfig(
     
     model_name_or_path="tfidf_baseline",
 
-    epochs = 5,
+    epochs = 10,
     
     unique_id_for_dir = "tfidf_ledgar",
     preprocessed_data_dir = "raw"
@@ -416,11 +416,11 @@ tfidf_ledgar = TfidfBaselineConfig(
 
 single_task_main_modules = [
     # Teachers
-        #ledgar_teacher,
-        #unfair_tos_teacher,
+        ledgar_teacher,
+        unfair_tos_teacher,
     # Baseline Students
-        #ledgar_supervised_student_baseline,
-        #unfair_tos_supervised_student_baseline,
+        ledgar_supervised_student_baseline,
+        unfair_tos_supervised_student_baseline,
     # Knowledge Distillation Students
         ledgar_kd_student,
         unfair_tos_kd_student,
