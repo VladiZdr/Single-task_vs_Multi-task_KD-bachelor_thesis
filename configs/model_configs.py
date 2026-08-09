@@ -35,7 +35,7 @@ class ModelConfig:
 
     # Parameter for low resource experiments (cuts only train set)
     # Combined with "percent_of_data" leads to double cut on train set
-    low_resource_percent: Literal[1, 10, 25, 50, 100] = 100
+    low_resource_percent: Literal[1, 9, 10, 25, 50, 100] = 100
 
     # Knowledge Distillation Hyperparameters
     kd_teacher_weight_schedule: Literal["constant", "linear_epoch"] = "constant"
@@ -73,9 +73,9 @@ class ModelConfig:
             raise ValueError(f"warmup_ratio must be between 0 and 1, got {self.warmup_ratio}")
         if not 0 < self.percent_of_data <= 100:
             raise ValueError(f"percent_of_data must be between 1 and 100, got {self.percent_of_data}")
-        if self.low_resource_percent not in (1, 10, 25, 50, 100):
+        if self.low_resource_percent not in (1, 9, 10, 25, 50, 100):
             raise ValueError(
-                f"low_resource_percent must be one of 1, 10, 25, 50, or 100, got {self.low_resource_percent}"
+                f"low_resource_percent must be one of 1, 9, 10, 25, 50, or 100, got {self.low_resource_percent}"
             )
         if not 0.0 <= self.kd_teacher_weight_start <= 1.0:
             raise ValueError(f"kd_teacher_weight_start must be between 0 and 1, got {self.kd_teacher_weight_start}")
@@ -167,7 +167,6 @@ class MultiTaskModelConfig:
             "kd_teacher_weight_schedule",
             "kd_teacher_weight_start",
             "kd_teacher_weight_end",
-            "low_resource_percent",
             "device",
             "seed",
         )

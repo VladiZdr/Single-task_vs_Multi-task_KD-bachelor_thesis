@@ -502,6 +502,70 @@ tfidf_ledgar = TfidfBaselineConfig(
     preprocessed_data_dir = "raw"
 )
 
+"------------------------------------------------------------------Balanced TEST MODULES----------------------------------------------------------------------------------"
+
+ledgar_teacher_balanced = ModelConfig(
+    task_name="ledgar",
+    num_labels=100,
+    problem_type="single_label",
+    loss_type="cross_entropy",
+    model_name_or_path="nlpaueb/legal-bert-base-uncased",
+    epochs=10,
+    
+    # Downsample ~60k dataset to ~5.5k to match UNFAIR-ToS
+    low_resource_percent=9,
+    
+    checkpoint_dir="./datasets_store/checkpoints/ledgar_teacher_balanced",
+    output_dir="./datasets_store/ds_with_teacher_outputs/ledgar_teacher_balanced_outputs",
+    unique_id_for_dir="Teacher_Bal",
+    preprocessed_data_dir="raw"
+)
+
+ledgar_supervised_student_balanced = ModelConfig(
+    task_name="ledgar",
+    num_labels=100,
+    problem_type="single_label",
+    loss_type="cross_entropy",
+    model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
+    epochs=10,
+    
+    low_resource_percent=9,
+    
+    checkpoint_dir="./datasets_store/checkpoints/ledgar_supervised_student_bal",
+    output_dir="./datasets_store/ds_with_teacher_outputs/ledgar_supervised_student_bal_outputs",
+    unique_id_for_dir="Baseline_Bal",
+    preprocessed_data_dir="raw"
+)
+
+ledgar_kd_student_balanced = ModelConfig(
+    task_name="ledgar",
+    num_labels=100,
+    problem_type="single_label",
+    loss_type="kldiv",
+    model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
+    teacher=ledgar_teacher_balanced, # Points to the balanced teacher
+    epochs=10,
+    
+    kd_teacher_weight_schedule="linear_epoch",
+    
+    checkpoint_dir="./datasets_store/checkpoints/ledgar_kd_student_bal",
+    output_dir="./datasets_store/ds_with_teacher_outputs/ledgar_kd_student_bal_outputs",
+    unique_id_for_dir="KD_Student_Bal",
+    preprocessed_data_dir="./datasets_store/ds_with_teacher_outputs/ledgar_teacher_balanced_outputs"
+)
+
+multi_task_supervised_model_balanced = MultiTaskModelConfig(
+    ledgar_config=ledgar_supervised_student_balanced,
+    unfair_tos_config=unfair_tos_supervised_student_baseline,
+    unique_id_for_dir="multi_task_super_bal"
+)
+
+multi_task_kd_model_balanced = MultiTaskModelConfig(
+    ledgar_config=ledgar_kd_student_balanced,
+    unfair_tos_config=unfair_tos_kd_student,
+    unique_id_for_dir="multi_task_kd_bal"
+)
+
 "------------------------------------------------------------------LISTS OF TEST MODULES----------------------------------------------------------------------------------"
 
 single_task_main_modules = [
@@ -519,6 +583,10 @@ single_task_main_modules = [
         unfair_tos_kd_student_mix_05,
         ledgar_kd_student_mix_07,
         unfair_tos_kd_student_mix_07,
+    # Balanced experiments
+        ledgar_teacher_balanced,
+        ledgar_supervised_student_balanced,
+        ledgar_kd_student_balanced,
 ]
 
 single_task_low_ressource_models = [
@@ -547,8 +615,12 @@ single_task_different_seed_models = [
 multi_task_main_modules = [
     multi_task_supervised_model,
     multi_task_kd_model,
+    # Constant 0.5 and 0.7 Teacher Weight Baselines
     multi_task_kd_model_mix_05,
     multi_task_kd_model_mix_07, 
+    # Balanced experiments
+    multi_task_supervised_model_balanced,
+    multi_task_kd_model_balanced,
 ]
 
 multi_task_low_ressource_models =[
