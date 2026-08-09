@@ -9,6 +9,7 @@ import os
 from math import inf
 from typing import Dict, Any
 from tqdm import tqdm
+from datasets_manipulation.export_teacher_outputs import SoftTargetExporter
 from single_task.legal_model import LegalModel
 from torch.cuda.amp import GradScaler, autocast
 
@@ -197,7 +198,7 @@ class LegalModelTrainer:
         
         best_macro_f1 = -inf
         best_checkpoint_path = os.path.join(self.config.checkpoint_dir, "best_model.pt")
-        
+        best_epoch = 0
         for epoch in range(self.config.epochs):
             logger.info(f"Epoch {epoch + 1}/{self.config.epochs}")
 
@@ -215,6 +216,8 @@ class LegalModelTrainer:
             if metrics["macro_f1"] > best_macro_f1:
                 best_macro_f1 = metrics["macro_f1"]
                 torch.save(self.model.state_dict(), best_checkpoint_path)
+                best_epoch = epoch + 1
                 logger.info(f"Saved best checkpoint to {best_checkpoint_path} with Macro-F1: {best_macro_f1:.4f}")
 
+        SoftTargetExporter.save_best_epoch(self.config.checkpoint_dir, best_epoch)
         return best_checkpoint_path

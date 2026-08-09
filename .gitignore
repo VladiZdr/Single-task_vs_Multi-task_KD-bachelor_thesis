@@ -5,6 +5,7 @@
 *.pt
 *.json
 *.arrow
+*.txt
 
 # Ignore virtual environments and outputs
 venv/

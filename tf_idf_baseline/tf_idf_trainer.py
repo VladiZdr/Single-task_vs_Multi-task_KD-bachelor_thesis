@@ -14,6 +14,7 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 from transformers import get_linear_schedule_with_warmup
 
+from datasets_manipulation.export_teacher_outputs import SoftTargetExporter
 from tf_idf_baseline.tf_idf_model import TfidfModel
 
 logger = logging.getLogger(__name__)
@@ -166,7 +167,7 @@ class TfidfTrainer:
 
         best_macro_f1 = -inf
         best_checkpoint_path = os.path.join(self.config.checkpoint_dir, "best_model.pt")
-
+        best_epoch = 0
         for epoch in range(self.config.epochs):
             train_loss = self.train_epoch(train_loader, optimizer, scheduler)
             metrics = self.evaluate(val_loader)
@@ -179,6 +180,8 @@ class TfidfTrainer:
             if metrics["macro_f1"] > best_macro_f1:
                 best_macro_f1 = metrics["macro_f1"]
                 torch.save(self.model.state_dict(), best_checkpoint_path)
+                best_epoch = epoch + 1
                 logger.info(f"Saved best checkpoint to {best_checkpoint_path} with Macro-F1: {best_macro_f1:.4f}")
 
+        SoftTargetExporter.save_best_epoch(self.config.checkpoint_dir, best_epoch)
         return best_checkpoint_path

@@ -15,6 +15,7 @@ from tqdm import tqdm
 from transformers import get_linear_schedule_with_warmup
 
 from configs.model_configs import ModelConfig
+from datasets_manipulation.export_teacher_outputs import SoftTargetExporter
 from multi_task.multi_task_model import MultiTaskModel
 
 logger = logging.getLogger(__name__)
@@ -359,7 +360,7 @@ class MultiTaskTrainer:
 
         best_macro_f1 = -inf
         best_checkpoint_path = os.path.join(self.checkpoint_path, "best_multi_task_model.pt")
-
+        best_epoch = 0
         for epoch in range(self.ledgar_config.epochs):
             logger.info(f"Epoch {epoch + 1}/{self.ledgar_config.epochs}")
 
@@ -385,6 +386,8 @@ class MultiTaskTrainer:
             if metrics["macro_f1"] > best_macro_f1:
                 best_macro_f1 = metrics["macro_f1"]
                 torch.save(self.model.state_dict(), best_checkpoint_path)
+                best_epoch = epoch + 1
                 logger.info(f"Saved best checkpoint to {best_checkpoint_path} with Macro-F1: {best_macro_f1:.4f}")
 
+        SoftTargetExporter.save_best_epoch(self.checkpoint_path, best_epoch)
         return best_checkpoint_path

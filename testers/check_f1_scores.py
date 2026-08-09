@@ -21,6 +21,14 @@ from tf_idf_baseline.train_tf_idf import prepare_dataloaders as prepare_tfidf_da
 from tf_idf_baseline.train_tf_idf import models_to_run as tfidf_models_to_run
 
 
+def get_best_epoch(checkpoint_dir: str) -> str:
+    """Retrieves the best epoch from the saved epoch file."""
+    epoch_path = os.path.join(checkpoint_dir, "best_epoch.txt")
+    if os.path.exists(epoch_path):
+        with open(epoch_path, "r") as f:
+            return f.read().strip()
+    return "-"
+
 def instantiate_model_and_trainer(config: ModelConfig):
     if isinstance(config, TfidfBaselineConfig):
         model = TfidfModel(config)
@@ -39,10 +47,11 @@ def _format_label_str(per_label_dict: Dict[str, Dict[str, float]], find_max: boo
         label, data = min(per_label_dict.items(), key=lambda item: item[1]["f1"])
     return f"{label} ({data['f1']:.2f})"
 
-def _format_and_print_row(name: str, loss: float, macro_f1: float, micro_f1: float, best_lbl: str, worst_lbl: str, throughput: str):
+def _format_and_print_row(name: str, loss: float, macro_f1: float, micro_f1: float, best_lbl: str, worst_lbl: str, throughput: str, epoch: str = "-"):
     """Helper to print a single standard row in the summary table."""
     print(
         f"{name:<50} | "
+        f"{epoch:<5} | "
         f"{loss:<7.4f} | "
         f"{macro_f1:<8.4f} | "
         f"{micro_f1:<8.4f} | "
@@ -55,6 +64,7 @@ def _print_results_section(results, prefix: str = "", is_multitask: bool = False
     """Prints formatted result rows for single-task, multi-task, or TF-IDF baseline models."""
     for name, res in results:
         m = res.get("metrics", {})
+        epoch = res.get("epoch", "-")
         display_name = f"{prefix}{name}"
 
         if not is_multitask:
@@ -67,11 +77,11 @@ def _print_results_section(results, prefix: str = "", is_multitask: bool = False
             worst_lbl = _format_label_str(per_label, find_max=False)
             throughput = f"{eff.get('samples_per_second', 0.0):.1f} smp/s" if eff else "-"
 
-            _format_and_print_row(display_name, m.get("loss", 0.0), m.get("macro_f1", 0.0), m.get("micro_f1", 0.0), best_lbl, worst_lbl, throughput)
+            _format_and_print_row(display_name, m.get("loss", 0.0), m.get("macro_f1", 0.0), m.get("micro_f1", 0.0), best_lbl, worst_lbl, throughput, epoch)
 
         else:
             # --- Multi-Task overall parent row ---
-            _format_and_print_row(display_name, m.get("loss", 0.0), m.get("macro_f1", 0.0), m.get("micro_f1", 0.0), best_lbl="-", worst_lbl="-", throughput="-")
+            _format_and_print_row(display_name, m.get("loss", 0.0), m.get("macro_f1", 0.0), m.get("micro_f1", 0.0), best_lbl="-", worst_lbl="-", throughput="-", epoch=epoch)
 
             # --- Multi-Task sub-task breakdown rows ---
             analyses = res.get("analyses", {})
@@ -93,15 +103,15 @@ def _print_results_section(results, prefix: str = "", is_multitask: bool = False
                 tree_branch = "└─" if idx == len(tasks) - 1 else "├─"
                 sub_name = f"  {tree_branch} {task_label}"
 
-                _format_and_print_row(sub_name, t_loss, t_macro, t_micro, best_lbl, worst_lbl, throughput)
+                _format_and_print_row(sub_name, t_loss, t_macro, t_micro, best_lbl, worst_lbl, throughput, epoch="-")
 
 def print_table(single_results, multi_results, tfidf_results):
     # Print Final Summary Table 
-    header_len = 140
+    header_len = 148
     print("\n" + "=" * header_len)
     print(" FINAL EVALUATION SUMMARY ".center(header_len, "="))
     print("=" * header_len)
-    print(f"{'Model / Task Sub-Split':<50} | {'Loss':<7} | {'Macro-F1':<8} | {'Micro-F1':<8} | {'Best Label (F1)':<18} | {'Worst Label (F1)':<18} | {'Throughput':<10}")
+    print(f"{'Model / Task Sub-Split':<50} | {'Epoch':<5} | {'Loss':<7} | {'Macro-F1':<8} | {'Micro-F1':<8} | {'Best Label (F1)':<18} | {'Worst Label (F1)':<18} | {'Throughput':<10}")
     print("-" * header_len)
 
     # 1. Single-Task
@@ -299,14 +309,17 @@ def evaluate_single_task_model(param_config: ModelConfig) -> Dict[str, Any]:
         current_config.task_name,
         current_config.num_labels,
     )
+    
+    epoch = get_best_epoch(current_config.checkpoint_dir)
 
     print(f"Evaluation metrics for {current_config.task_name}_{current_config.unique_id_for_dir}: {metrics}")
-    return {"metrics": metrics, "analysis": analysis}
+    return {"metrics": metrics, "analysis": analysis, "epoch": epoch}
 
 @torch.no_grad()
 def evaluate_multi_task_model(param_model: MultiTaskModelConfig) -> Dict[str, Any]:
     current_model = param_model
-    checkpoint_path = os.path.join("./datasets_store/checkpoints", current_model.unique_id_for_dir, "best_multi_task_model.pt")
+    checkpoint_dir = os.path.join("./datasets_store/checkpoints", current_model.unique_id_for_dir)
+    checkpoint_path = os.path.join(checkpoint_dir, "best_multi_task_model.pt")
 
     if not os.path.exists(checkpoint_path):
         raise FileNotFoundError(
@@ -352,6 +365,9 @@ def evaluate_multi_task_model(param_model: MultiTaskModelConfig) -> Dict[str, An
     unfair_tos_analysis = analyze_performance_and_efficiency(
         trainer, test_loaders["unfair_tos"], "unfair_tos", current_model.unfair_tos_config.num_labels,
     )
+    
+    epoch = get_best_epoch(checkpoint_dir)
+    
     print(
         f"Evaluation metrics for multi-task model {current_model.unique_id_for_dir}: {metrics}\n"
         f"LEDGAR analysis: {ledgar_analysis['efficiency']}\n"
@@ -362,7 +378,8 @@ def evaluate_multi_task_model(param_model: MultiTaskModelConfig) -> Dict[str, An
         "analyses": {
             "ledgar": ledgar_analysis,
             "unfair_tos": unfair_tos_analysis,
-        }
+        },
+        "epoch": epoch
     }
 
 @torch.no_grad()
@@ -392,9 +409,11 @@ def evaluate_tf_idf(param_config: TfidfBaselineConfig) -> Dict[str, Any]:
         current_config.task_name,
         current_config.num_labels,
     )
+    
+    epoch = get_best_epoch(current_config.checkpoint_dir)
 
     print(f"Evaluation metrics for TF-IDF model {current_config.task_name}_{current_config.unique_id_for_dir}: {metrics}")
-    return {"metrics": metrics, "analysis": analysis}
+    return {"metrics": metrics, "analysis": analysis, "epoch": epoch}
     
 def check_all_f1_scores() -> None:
     single_results = []

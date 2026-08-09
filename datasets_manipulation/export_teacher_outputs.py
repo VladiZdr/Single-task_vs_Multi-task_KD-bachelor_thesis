@@ -240,6 +240,14 @@ class SoftTargetExporter:
 
             SoftTargetExporter.export(model, dataloader_inference, dataloader_export, config, split_name)
 
+    @staticmethod
+    def save_best_epoch(checkpoint_dir: str, epoch: int) -> None:
+        """Saves the best epoch number to a file alongside the checkpoint."""
+        os.makedirs(checkpoint_dir, exist_ok=True)
+        epoch_path = os.path.join(checkpoint_dir, "best_epoch.txt")
+        with open(epoch_path, "w") as f:
+            f.write(str(epoch))
+            
     # Main method executing inference on a split and saving model predictions to disk.
     @staticmethod
     @torch.no_grad()

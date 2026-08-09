@@ -111,7 +111,7 @@ unfair_tos_kd_student_tester = ModelConfig(
 
     percent_of_data=1,  
     
-    epochs=2,
+    epochs=4,
 
     kd_teacher_weight_schedule = "linear_epoch",
 
@@ -128,8 +128,8 @@ ledgar_kd_student_tester = ModelConfig(
     teacher=ledgar_teacher_tester,
 
     percent_of_data=1,  
-
-    epochs = 2,
+    
+    epochs = 4,
 
     kd_teacher_weight_schedule = "linear_epoch",
 
@@ -147,7 +147,7 @@ unfair_tos_kd_check_correct_low_ressource = ModelConfig(
 
     low_resource_percent=1,  
     
-    epochs=2,
+    epochs=4,
 
     kd_teacher_weight_schedule = "linear_epoch",
 
@@ -165,7 +165,7 @@ ledgar_kd_check_correct_low_ressource = ModelConfig(
 
     low_resource_percent=1,  
 
-    epochs = 2,
+    epochs = 4,
 
     kd_teacher_weight_schedule = "linear_epoch",
 
@@ -183,7 +183,7 @@ ledgar_kd_mix_05_tester = ModelConfig(
     teacher=ledgar_teacher_tester,
     
     percent_of_data=1,
-    epochs=2,
+    epochs=4,
     
     kd_teacher_weight_schedule="constant",
     kd_teacher_weight_start=0.5,
@@ -201,7 +201,7 @@ unfair_tos_kd_mix_05_tester = ModelConfig(
     teacher=unfair_tos_teacher_tester,
     
     percent_of_data=1,
-    epochs=2,
+    epochs=4,
     
     kd_teacher_weight_schedule="constant",
     kd_teacher_weight_start=0.5,
@@ -220,7 +220,7 @@ ledgar_kd_mix_07_tester = ModelConfig(
     teacher=ledgar_teacher_tester,
     
     percent_of_data=1,
-    epochs=2,
+    epochs=4,
     
     kd_teacher_weight_schedule="constant",
     kd_teacher_weight_start=0.7,
@@ -238,7 +238,7 @@ unfair_tos_kd_mix_07_tester = ModelConfig(
     teacher=unfair_tos_teacher_tester,
     
     percent_of_data=1,
-    epochs=2,
+    epochs=4,
     
     kd_teacher_weight_schedule="constant",
     kd_teacher_weight_start=0.7,
@@ -289,7 +289,6 @@ tfidf_tester = TfidfBaselineConfig(
     model_name_or_path="tfidf_baseline", # !!!! important for data processing !!!!
 
     percent_of_data=1,  
-    
 
     unique_id_for_dir = "tfidf_tester",
     preprocessed_data_dir = "raw" # irrelevant -> will be overwritten later
