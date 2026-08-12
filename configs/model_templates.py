@@ -578,15 +578,17 @@ single_task_main_modules = [
     # Knowledge Distillation Students
         ledgar_kd_student,
         unfair_tos_kd_student,
-    # Constant 0.5 and 0.7 Teacher Weight Baselines
-        ledgar_kd_student_mix_05,
-        unfair_tos_kd_student_mix_05,
-        ledgar_kd_student_mix_07,
-        unfair_tos_kd_student_mix_07,
-    # Balanced experiments
-        ledgar_teacher_balanced,
-        ledgar_supervised_student_balanced,
-        ledgar_kd_student_balanced,
+]
+constants_single_task_models = [
+    ledgar_kd_student_mix_05,
+    unfair_tos_kd_student_mix_05,
+    ledgar_kd_student_mix_07,
+    unfair_tos_kd_student_mix_07,
+]
+balanced_single_task_models = [
+    ledgar_teacher_balanced,
+    ledgar_supervised_student_balanced,
+    ledgar_kd_student_balanced,
 ]
 
 single_task_low_ressource_models = [
@@ -615,10 +617,14 @@ single_task_different_seed_models = [
 multi_task_main_modules = [
     multi_task_supervised_model,
     multi_task_kd_model,
-    # Constant 0.5 and 0.7 Teacher Weight Baselines
+]
+
+constants_multi_task_models = [
     multi_task_kd_model_mix_05,
-    multi_task_kd_model_mix_07, 
-    # Balanced experiments
+    multi_task_kd_model_mix_07,
+]
+
+balanced_multi_task_models = [
     multi_task_supervised_model_balanced,
     multi_task_kd_model_balanced,
 ]
