@@ -299,7 +299,7 @@ balanced_models = balanced_single_task_models
 low_resource_models = single_task_low_ressource_models
 different_seed_models = single_task_different_seed_models
 
-models_to_run = balanced_models
+models_to_run = main_models + constants_models
 
 
 def run_pipelines() -> None:

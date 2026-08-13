@@ -590,7 +590,6 @@ balanced_single_task_models = [
     ledgar_supervised_student_balanced,
     ledgar_kd_student_balanced,
 ]
-
 single_task_low_ressource_models = [
     # Low-resource experiments
     ledgar_supervised_student_low_resource,
@@ -598,7 +597,6 @@ single_task_low_ressource_models = [
     ledgar_kd_student_low_resource,
     unfair_tos_kd_student_low_resource,
 ]
-
 single_task_different_seed_models = [
     # Three-seed final experiments
     ledgar_supervised_student_final_seed_2,
@@ -618,22 +616,18 @@ multi_task_main_modules = [
     multi_task_supervised_model,
     multi_task_kd_model,
 ]
-
 constants_multi_task_models = [
     multi_task_kd_model_mix_05,
     multi_task_kd_model_mix_07,
 ]
-
 balanced_multi_task_models = [
     multi_task_supervised_model_balanced,
     multi_task_kd_model_balanced,
 ]
-
 multi_task_low_ressource_models =[
     multi_task_supervised_model_low_resource,
     multi_task_kd_model_low_resource,
 ]
-
 multi_task_different_seed_models = [
     multi_task_supervised_model_final_seed_2,
     multi_task_supervised_model_final_seed_3,
