@@ -228,7 +228,7 @@ constants_models = constants_multi_task_models
 low_resource_models = multi_task_low_ressource_models
 different_seed_models = multi_task_different_seed_models
 
-models_to_run = main_models + balanced_models + constants_models
+models_to_run = []
 
 
 def run_multitask_pipelines() -> None:
