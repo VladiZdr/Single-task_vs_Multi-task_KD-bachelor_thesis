@@ -20,6 +20,7 @@ from configs.model_templates import (
     single_task_different_seed_models,
     constants_single_task_models,
     balanced_single_task_models,
+    temperature_single_task_models,
 )
 from datasets_manipulation.prepare_datasets import prep_dataset_from_raw, smart_load_dataset
 from single_task.legal_model import LegalModel
@@ -299,7 +300,7 @@ balanced_models = balanced_single_task_models
 low_resource_models = single_task_low_ressource_models
 different_seed_models = single_task_different_seed_models
 
-models_to_run = main_models + constants_models
+models_to_run = temperature_single_task_models
 
 
 def run_pipelines() -> None:

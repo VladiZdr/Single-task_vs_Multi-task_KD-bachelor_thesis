@@ -17,6 +17,7 @@ from configs.model_templates import (
     multi_task_main_modules,
     constants_multi_task_models,
     balanced_multi_task_models,
+    temperature_multi_task_models,
 )
 from configs.model_templates_testers import multi_task_testers
 from datasets_manipulation.prepare_datasets import prep_dataset_from_raw, smart_load_dataset
@@ -227,8 +228,9 @@ balanced_models = balanced_multi_task_models
 constants_models = constants_multi_task_models
 low_resource_models = multi_task_low_ressource_models
 different_seed_models = multi_task_different_seed_models
+temperature_models = temperature_multi_task_models
 
-models_to_run = []
+models_to_run = temperature_multi_task_models
 
 
 def run_multitask_pipelines() -> None:

@@ -566,6 +566,96 @@ multi_task_kd_model_balanced = MultiTaskModelConfig(
     unique_id_for_dir="multi_task_kd_bal"
 )
 
+"------------------------------------------------------------------INCREASED TEMPERATURE MODELS----------------------------------------------------------------------------------"
+
+ledgar_kd_student_t2 = ModelConfig(
+    task_name="ledgar",
+    num_labels=100,
+    problem_type="single_label",
+    loss_type="kldiv",
+    model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
+    teacher=ledgar_teacher,
+    epochs=10,
+    T=2.0,
+    
+    kd_teacher_weight_schedule="linear_epoch",
+    
+    checkpoint_dir="./datasets_store/checkpoints/ledgar_kd_student_t2",
+    output_dir="./datasets_store/ds_with_teacher_outputs/ledgar_kd_student_t2_outputs",
+    unique_id_for_dir="KD_T2",
+    preprocessed_data_dir="./datasets_store/ds_with_teacher_outputs/ledgar_teacher_outputs",
+)
+
+unfair_tos_kd_student_t2 = ModelConfig(
+    task_name="unfair_tos",
+    num_labels=8,
+    problem_type="multi_label",
+    loss_type="kldiv",
+    model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
+    teacher=unfair_tos_teacher,
+    epochs=10,
+    T=2.0,
+    
+    kd_teacher_weight_schedule="linear_epoch",
+    
+    device="auto",
+    seed=42,
+    checkpoint_dir="./datasets_store/checkpoints/unfair_tos_kd_student_t2",
+    output_dir="./datasets_store/ds_with_teacher_outputs/unfair_tos_kd_student_t2_outputs",
+    unique_id_for_dir="KD_T2",
+    preprocessed_data_dir="./datasets_store/ds_with_teacher_outputs/unfair_tos_teacher_outputs",
+)
+
+ledgar_kd_student_t4 = ModelConfig(
+    task_name="ledgar",
+    num_labels=100,
+    problem_type="single_label",
+    loss_type="kldiv",
+    model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
+    teacher=ledgar_teacher,
+    epochs=10,
+    T=4.0,
+    
+    kd_teacher_weight_schedule="linear_epoch",
+    
+    checkpoint_dir="./datasets_store/checkpoints/ledgar_kd_student_t4",
+    output_dir="./datasets_store/ds_with_teacher_outputs/ledgar_kd_student_t4_outputs",
+    unique_id_for_dir="KD_T4",
+    preprocessed_data_dir="./datasets_store/ds_with_teacher_outputs/ledgar_teacher_outputs",
+)
+
+unfair_tos_kd_student_t4 = ModelConfig(
+    task_name="unfair_tos",
+    num_labels=8,
+    problem_type="multi_label",
+    loss_type="kldiv",
+    model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
+    teacher=unfair_tos_teacher,
+    epochs=10,
+    T=4.0,
+    
+    kd_teacher_weight_schedule="linear_epoch",
+    
+    device="auto",
+    seed=42,
+    checkpoint_dir="./datasets_store/checkpoints/unfair_tos_kd_student_t4",
+    output_dir="./datasets_store/ds_with_teacher_outputs/unfair_tos_kd_student_t4_outputs",
+    unique_id_for_dir="KD_T4",
+    preprocessed_data_dir="./datasets_store/ds_with_teacher_outputs/unfair_tos_teacher_outputs",
+)
+
+multi_task_kd_model_t4 = MultiTaskModelConfig(
+    ledgar_config=ledgar_kd_student_t4,
+    unfair_tos_config=unfair_tos_kd_student_t4,
+    unique_id_for_dir="multi_task_kd_t4",
+)
+
+multi_task_kd_model_t2 = MultiTaskModelConfig(
+    ledgar_config=ledgar_kd_student_t2,
+    unfair_tos_config=unfair_tos_kd_student_t2,
+    unique_id_for_dir="multi_task_kd_t2",
+)
+
 "------------------------------------------------------------------LISTS OF TEST MODULES----------------------------------------------------------------------------------"
 
 single_task_main_modules = [
@@ -639,4 +729,16 @@ multi_task_different_seed_models = [
 tf_idf_main_modules = [
     tfidf_ledgar,
     tfidf_unfair_tos
+]
+
+temperature_single_task_models = [
+    ledgar_kd_student_t2,
+    unfair_tos_kd_student_t2,
+    ledgar_kd_student_t4,
+    unfair_tos_kd_student_t4,
+]
+
+temperature_multi_task_models = [
+    multi_task_kd_model_t2,
+    multi_task_kd_model_t4,
 ]
