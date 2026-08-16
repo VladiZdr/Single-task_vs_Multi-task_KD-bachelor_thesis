@@ -16,12 +16,12 @@ import configs.model_templates as model_config
 from configs.model_templates_testers import single_task_testers
 from configs.model_templates import (
     single_task_main_modules,
-    single_task_low_ressource_models,
-    single_task_different_seed_models,
     constants_single_task_models,
     balanced_single_task_models,
     temperature_single_task_models,
+    annealing_single_task_models,
 )
+from configs.model_templates_low_ress import low_resource_single_task_models
 from datasets_manipulation.prepare_datasets import prep_dataset_from_raw, smart_load_dataset
 from single_task.legal_model import LegalModel
 from single_task.legal_model_trainer import LegalModelTrainer
@@ -297,10 +297,10 @@ testers = single_task_testers
 main_models = single_task_main_modules
 constants_models = constants_single_task_models
 balanced_models = balanced_single_task_models
-low_resource_models = single_task_low_ressource_models
-different_seed_models = single_task_different_seed_models
+temperature_models = temperature_single_task_models
+annealing_models = annealing_single_task_models
 
-models_to_run = temperature_single_task_models
+models_to_run = annealing_single_task_models + low_resource_single_task_models
 
 
 def run_pipelines() -> None:
