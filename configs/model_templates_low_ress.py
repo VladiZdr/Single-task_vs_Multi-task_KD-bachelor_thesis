@@ -250,7 +250,6 @@ low_resource_single_task_models = [
 # ==============================================================================================
 
 low_resource_multi_task_models = [
-
     # --- 30% UNFAIR-ToS / 3% LEDGAR ---
     multi_task_supervised_lr30_3,
     multi_task_kd_lr30_3,

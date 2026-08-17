@@ -229,7 +229,7 @@ constants_models = constants_multi_task_models
 temperature_models = temperature_multi_task_models
 annealing_models = annealing_multi_task_models
 
-models_to_run = annealing_models + low_resource_multi_task_models
+models_to_run = low_resource_multi_task_models
 
 
 def run_multitask_pipelines() -> None:
