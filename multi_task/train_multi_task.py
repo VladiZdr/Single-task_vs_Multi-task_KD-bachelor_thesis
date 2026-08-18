@@ -14,7 +14,6 @@ from configs.model_configs import ModelConfig, MultiTaskModelConfig
 from configs.model_templates import (
     multi_task_main_modules,
     constants_multi_task_models,
-    balanced_multi_task_models,
     temperature_multi_task_models,
     annealing_multi_task_models,
 )
@@ -224,12 +223,12 @@ def run_multitask_pipeline(multitask_model_config: MultiTaskModelConfig) -> None
 testers = multi_task_testers
 
 main_models = multi_task_main_modules
-balanced_models = balanced_multi_task_models
 constants_models = constants_multi_task_models
 temperature_models = temperature_multi_task_models
 annealing_models = annealing_multi_task_models
+low_resource_models = low_resource_multi_task_models
 
-models_to_run = annealing_models
+models_to_run = low_resource_models + annealing_models
 
 
 def run_multitask_pipelines() -> None:

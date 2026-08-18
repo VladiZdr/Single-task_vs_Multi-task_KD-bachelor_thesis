@@ -17,7 +17,6 @@ from configs.model_templates_testers import single_task_testers
 from configs.model_templates import (
     single_task_main_modules,
     constants_single_task_models,
-    balanced_single_task_models,
     temperature_single_task_models,
     annealing_single_task_models,
 )
@@ -296,11 +295,11 @@ def run_task_pipeline(task_config: ModelConfig) -> None:
 testers = single_task_testers
 main_models = single_task_main_modules
 constants_models = constants_single_task_models
-balanced_models = balanced_single_task_models
 temperature_models = temperature_single_task_models
 annealing_models = annealing_single_task_models
+low_resource_models = low_resource_single_task_models
 
-models_to_run = annealing_models
+models_to_run = low_resource_models + annealing_models
 
 
 def run_pipelines() -> None:
