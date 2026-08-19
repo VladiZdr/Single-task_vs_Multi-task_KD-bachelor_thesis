@@ -214,7 +214,7 @@ def smart_load_dataset(task_config: ModelConfig) -> DatasetDict:
         preprocessed = _load_valid_dataset_dict(data_dir)
 
     
-    # Cut data
+    # Cut data for testing
     preprocessed = sample_percent_dataset_for_testing(preprocessed, task_config.percent_of_data)
     if not isinstance(preprocessed, DatasetDict):
         raise ValueError(f"Expected a DatasetDict after loading {task_config.preprocessed_data_dir}.")

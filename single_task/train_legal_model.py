@@ -53,9 +53,7 @@ def seed_worker(worker_id: int) -> None:
     random.seed(worker_seed)
 
 
-def load_preprocessed_dataset(
-    task_config: ModelConfig,
-) -> tuple[HFDataset, HFDataset, HFDataset, HFDataset, HFDataset, HFDataset]:
+def load_preprocessed_dataset( task_config: ModelConfig) -> tuple[HFDataset, HFDataset, HFDataset, HFDataset, HFDataset, HFDataset]:
     # Load tokenized dataset from disk or raw
     if task_config.preprocessed_data_dir == "raw":
         preprocessed_training, preprocessed_for_export = prep_dataset_from_raw(task_config)
@@ -197,9 +195,7 @@ def create_minibatches_for_training_and_export(
     return train_loader, val_loader, test_loader, unshuffled_train_loader, dataloaders_for_export
 
 
-def prepare_dataloaders(
-    task_config: ModelConfig,
-) -> tuple[DataLoader, DataLoader, DataLoader, DataLoader, dict[str, DataLoader]]:
+def prepare_dataloaders(task_config: ModelConfig) -> tuple[DataLoader, DataLoader, DataLoader, DataLoader, dict[str, DataLoader]]:
     set_all_seeds(task_config.seed)
 
     (
