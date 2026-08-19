@@ -35,6 +35,7 @@ class ModelConfig:
 
     # Parameter for low resource experiments (cuts only train set)
     # Combined with "percent_of_data" leads to double cut on train set
+    # Applied on KD student would lead to cutting the teacher outputs further
     low_resource_percent: int = 100
 
     # Knowledge Distillation Hyperparameters

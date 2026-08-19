@@ -1,6 +1,219 @@
 from configs.model_configs import ModelConfig, MultiTaskModelConfig #[cite: 2]
 from configs.model_templates import unfair_tos_supervised_student_baseline, unfair_tos_kd_student #[cite: 2]
 
+# ==============================================================================================
+# 30% UNFAIR-ToS / 3% LEDGAR CONFIGURATIONS (33 Epochs)
+# ==============================================================================================
+
+# 1. Teachers
+unfair_tos_teacher_lr30 = ModelConfig(
+    task_name="unfair_tos",
+    num_labels=8,
+    problem_type="multi_label",
+    loss_type="bce_with_logits",
+    model_name_or_path="nlpaueb/legal-bert-base-uncased",
+    epochs=33, # Proportionally increased: 10 * (100/30)
+    low_resource_percent=30,
+    checkpoint_dir="./datasets_store/checkpoints/unfair_tos_teacher_lr30",
+    output_dir="./datasets_store/ds_with_teacher_outputs/unfair_tos_teacher_lr30_outputs",
+    unique_id_for_dir="Teacher_LR30",
+    preprocessed_data_dir="raw"
+)
+
+ledgar_teacher_lr3 = ModelConfig(
+    task_name="ledgar",
+    num_labels=100,
+    problem_type="single_label",
+    loss_type="cross_entropy",
+    model_name_or_path="nlpaueb/legal-bert-base-uncased",
+    epochs=33, # Matched with UNFAIR-ToS
+    low_resource_percent=3,
+    checkpoint_dir="./datasets_store/checkpoints/ledgar_teacher_lr3",
+    output_dir="./datasets_store/ds_with_teacher_outputs/ledgar_teacher_lr3_outputs",
+    unique_id_for_dir="Teacher_LR3",
+    preprocessed_data_dir="raw"
+)
+
+# 2. Supervised Student Baselines
+unfair_tos_supervised_student_lr30 = ModelConfig(
+    task_name="unfair_tos",
+    num_labels=8,
+    problem_type="multi_label",
+    loss_type="bce_with_logits",
+    model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
+    epochs=33, 
+    low_resource_percent=30,
+    checkpoint_dir="./datasets_store/checkpoints/unfair_tos_supervised_lr30",
+    output_dir="./datasets_store/ds_with_teacher_outputs/unfair_tos_supervised_lr30_outputs",
+    unique_id_for_dir="Supervised_LR30",
+    preprocessed_data_dir="raw"
+)
+
+ledgar_supervised_student_lr3 = ModelConfig(
+    task_name="ledgar",
+    num_labels=100,
+    problem_type="single_label",
+    loss_type="cross_entropy",
+    model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
+    epochs=33, 
+    low_resource_percent=3,
+    checkpoint_dir="./datasets_store/checkpoints/ledgar_supervised_lr3",
+    output_dir="./datasets_store/ds_with_teacher_outputs/ledgar_supervised_lr3_outputs",
+    unique_id_for_dir="Supervised_LR3",
+    preprocessed_data_dir="raw"
+)
+
+# 3. KD Students
+unfair_tos_kd_student_lr30 = ModelConfig(
+    task_name="unfair_tos",
+    num_labels=8,
+    problem_type="multi_label",
+    loss_type="kldiv",
+    model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
+    teacher=unfair_tos_teacher_lr30,
+    epochs=33, 
+    kd_teacher_weight_schedule="linear_epoch",
+    checkpoint_dir="./datasets_store/checkpoints/unfair_tos_kd_lr30",
+    output_dir="./datasets_store/ds_with_teacher_outputs/unfair_tos_kd_lr30_outputs",
+    unique_id_for_dir="KD_LR30",
+    preprocessed_data_dir="./datasets_store/ds_with_teacher_outputs/unfair_tos_teacher_lr30_outputs"
+)
+
+ledgar_kd_student_lr3 = ModelConfig(
+    task_name="ledgar",
+    num_labels=100,
+    problem_type="single_label",
+    loss_type="kldiv",
+    model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
+    teacher=ledgar_teacher_lr3,
+    epochs=33, 
+    kd_teacher_weight_schedule="linear_epoch",
+    checkpoint_dir="./datasets_store/checkpoints/ledgar_kd_lr3",
+    output_dir="./datasets_store/ds_with_teacher_outputs/ledgar_kd_lr3_outputs",
+    unique_id_for_dir="KD_LR3",
+    preprocessed_data_dir="./datasets_store/ds_with_teacher_outputs/ledgar_teacher_lr3_outputs"
+)
+
+# 4. Multi-Task Supervised Model
+multi_task_supervised_lr30_3 = MultiTaskModelConfig(
+    ledgar_config=ledgar_supervised_student_lr3,
+    unfair_tos_config=unfair_tos_supervised_student_lr30,
+    unique_id_for_dir="MT_Supervised_LR30_3"
+)
+
+# 5. Multi-Task KD Model
+multi_task_kd_lr30_3 = MultiTaskModelConfig(
+    ledgar_config=ledgar_kd_student_lr3,
+    unfair_tos_config=unfair_tos_kd_student_lr30,
+    unique_id_for_dir="MT_KD_LR30_3"
+)
+
+# ==============================================================================================
+# 40% UNFAIR-ToS / 4% LEDGAR CONFIGURATIONS (25 Epochs)
+# ==============================================================================================
+
+# 1. Teachers
+unfair_tos_teacher_lr40 = ModelConfig(
+    task_name="unfair_tos",
+    num_labels=8,
+    problem_type="multi_label",
+    loss_type="bce_with_logits",
+    model_name_or_path="nlpaueb/legal-bert-base-uncased",
+    epochs=25, # Proportionally increased: 10 * (100/40)
+    low_resource_percent=40,
+    checkpoint_dir="./datasets_store/checkpoints/unfair_tos_teacher_lr40",
+    output_dir="./datasets_store/ds_with_teacher_outputs/unfair_tos_teacher_lr40_outputs",
+    unique_id_for_dir="Teacher_LR40",
+    preprocessed_data_dir="raw"
+)
+
+ledgar_teacher_lr4 = ModelConfig(
+    task_name="ledgar",
+    num_labels=100,
+    problem_type="single_label",
+    loss_type="cross_entropy",
+    model_name_or_path="nlpaueb/legal-bert-base-uncased",
+    epochs=25, # Matched with UNFAIR-ToS
+    low_resource_percent=4,
+    checkpoint_dir="./datasets_store/checkpoints/ledgar_teacher_lr4",
+    output_dir="./datasets_store/ds_with_teacher_outputs/ledgar_teacher_lr4_outputs",
+    unique_id_for_dir="Teacher_LR4",
+    preprocessed_data_dir="raw"
+)
+
+# 2. Supervised Student Baselines
+unfair_tos_supervised_student_lr40 = ModelConfig(
+    task_name="unfair_tos",
+    num_labels=8,
+    problem_type="multi_label",
+    loss_type="bce_with_logits",
+    model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
+    epochs=25, 
+    low_resource_percent=40,
+    checkpoint_dir="./datasets_store/checkpoints/unfair_tos_supervised_lr40",
+    output_dir="./datasets_store/ds_with_teacher_outputs/unfair_tos_supervised_lr40_outputs",
+    unique_id_for_dir="Supervised_LR40",
+    preprocessed_data_dir="raw"
+)
+
+ledgar_supervised_student_lr4 = ModelConfig(
+    task_name="ledgar",
+    num_labels=100,
+    problem_type="single_label",
+    loss_type="cross_entropy",
+    model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
+    epochs=25, 
+    low_resource_percent=4,
+    checkpoint_dir="./datasets_store/checkpoints/ledgar_supervised_lr4",
+    output_dir="./datasets_store/ds_with_teacher_outputs/ledgar_supervised_lr4_outputs",
+    unique_id_for_dir="Supervised_LR4",
+    preprocessed_data_dir="raw"
+)
+
+# 3. KD Students
+unfair_tos_kd_student_lr40 = ModelConfig(
+    task_name="unfair_tos",
+    num_labels=8,
+    problem_type="multi_label",
+    loss_type="kldiv",
+    model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
+    teacher=unfair_tos_teacher_lr40,
+    epochs=25, 
+    kd_teacher_weight_schedule="linear_epoch",
+    checkpoint_dir="./datasets_store/checkpoints/unfair_tos_kd_lr40",
+    output_dir="./datasets_store/ds_with_teacher_outputs/unfair_tos_kd_lr40_outputs",
+    unique_id_for_dir="KD_LR40",
+    preprocessed_data_dir="./datasets_store/ds_with_teacher_outputs/unfair_tos_teacher_lr40_outputs"
+)
+
+ledgar_kd_student_lr4 = ModelConfig(
+    task_name="ledgar",
+    num_labels=100,
+    problem_type="single_label",
+    loss_type="kldiv",
+    model_name_or_path="google/bert_uncased_L-4_H-256_A-4",
+    teacher=ledgar_teacher_lr4,
+    epochs=25, 
+    kd_teacher_weight_schedule="linear_epoch",
+    checkpoint_dir="./datasets_store/checkpoints/ledgar_kd_lr4",
+    output_dir="./datasets_store/ds_with_teacher_outputs/ledgar_kd_lr4_outputs",
+    unique_id_for_dir="KD_LR4",
+    preprocessed_data_dir="./datasets_store/ds_with_teacher_outputs/ledgar_teacher_lr4_outputs"
+)
+
+# 4. Multi-Task Supervised Model
+multi_task_supervised_lr40_4 = MultiTaskModelConfig(
+    ledgar_config=ledgar_supervised_student_lr4,
+    unfair_tos_config=unfair_tos_supervised_student_lr40,
+    unique_id_for_dir="MT_Supervised_LR40_4"
+)
+
+# 5. Multi-Task KD Model
+multi_task_kd_lr40_4 = MultiTaskModelConfig(
+    ledgar_config=ledgar_kd_student_lr4,
+    unfair_tos_config=unfair_tos_kd_student_lr40,
+    unique_id_for_dir="MT_KD_LR40_4"
+)
 
 # ==============================================================================================
 # 50% UNFAIR-ToS / 5% LEDGAR CONFIGURATIONS (20 Epochs)
@@ -607,11 +820,27 @@ multi_task_kd_model_lr100_10 = MultiTaskModelConfig(
 # ==============================================================================================
 
 low_resource_single_task_models = [
+    # --- 30% UNFAIR-ToS / 3% LEDGAR ---
+    ledgar_teacher_lr3,
+    unfair_tos_teacher_lr30,
+    unfair_tos_supervised_student_lr30,
+    ledgar_supervised_student_lr3,
+    unfair_tos_kd_student_lr30,
+    ledgar_kd_student_lr3,
+
+    # --- 40% UNFAIR-ToS / 4% LEDGAR ---
+    ledgar_teacher_lr4,
+    unfair_tos_teacher_lr40,
+    unfair_tos_supervised_student_lr40,
+    ledgar_supervised_student_lr4,
+    unfair_tos_kd_student_lr40,
+    ledgar_kd_student_lr4,
+
     # --- 50% UNFAIR-ToS / 5% LEDGAR ---
-    ledgar_teacher_lr5, #[cite: 2]
-    unfair_tos_teacher_lr50, #[cite: 2]
-    unfair_tos_supervised_student_lr50, #[cite: 2]
-    ledgar_supervised_student_lr5, #[cite: 2]
+    #already trained (not evaluated!!) ledgar_teacher_lr5, #[cite: 2]
+    #already trained (not evaluated!!) unfair_tos_teacher_lr50, #[cite: 2]
+    #already trained (not evaluated!!) unfair_tos_supervised_student_lr50, #[cite: 2]
+    #already trained (not evaluated!!) ledgar_supervised_student_lr5, #[cite: 2]
     unfair_tos_kd_student_lr50, #[cite: 2]
     ledgar_kd_student_lr5, #[cite: 2]
 
@@ -658,6 +887,13 @@ low_resource_single_task_models = [
 # ==============================================================================================
 
 low_resource_multi_task_models = [
+    # --- 30% UNFAIR-ToS / 3% LEDGAR ---
+    multi_task_supervised_lr30_3,
+    multi_task_kd_lr30_3,
+
+    # --- 40% UNFAIR-ToS / 4% LEDGAR ---
+    multi_task_supervised_lr40_4,
+    multi_task_kd_lr40_4,
 
     # --- 50% UNFAIR-ToS / 5% LEDGAR ---
     multi_task_supervised_lr50_5, #[cite: 2]
