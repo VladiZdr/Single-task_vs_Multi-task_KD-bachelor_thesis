@@ -837,10 +837,10 @@ low_resource_single_task_models = [
     ledgar_kd_student_lr4,
 
     # --- 50% UNFAIR-ToS / 5% LEDGAR ---
-    #already trained (not evaluated!!) ledgar_teacher_lr5, #[cite: 2]
-    #already trained (not evaluated!!) unfair_tos_teacher_lr50, #[cite: 2]
-    #already trained (not evaluated!!) unfair_tos_supervised_student_lr50, #[cite: 2]
-    #already trained (not evaluated!!) ledgar_supervised_student_lr5, #[cite: 2]
+    ledgar_teacher_lr5, #[cite: 2]
+    unfair_tos_teacher_lr50, #[cite: 2]
+    unfair_tos_supervised_student_lr50, #[cite: 2]
+    ledgar_supervised_student_lr5, #[cite: 2]
     unfair_tos_kd_student_lr50, #[cite: 2]
     ledgar_kd_student_lr5, #[cite: 2]
 
@@ -880,6 +880,46 @@ low_resource_single_task_models = [
     ledgar_teacher_lr10, #[cite: 2]
     ledgar_supervised_student_lr10, #[cite: 2]
     ledgar_kd_student_lr10, #[cite: 2]
+]
+
+models_for_eval = [
+    # --- 30% UNFAIR-ToS / 3% LEDGAR ---
+    ledgar_teacher_lr3,
+    unfair_tos_teacher_lr30,
+    unfair_tos_supervised_student_lr30,
+    ledgar_supervised_student_lr3,
+    unfair_tos_kd_student_lr30,
+    ledgar_kd_student_lr3,
+
+    # --- 40% UNFAIR-ToS / 4% LEDGAR ---
+    ledgar_teacher_lr4,
+    unfair_tos_teacher_lr40,
+    unfair_tos_supervised_student_lr40,
+    ledgar_supervised_student_lr4,
+    unfair_tos_kd_student_lr40,
+    ledgar_kd_student_lr4,
+
+    # --- 50% UNFAIR-ToS / 5% LEDGAR ---
+    ledgar_teacher_lr5, #[cite: 2]
+    unfair_tos_teacher_lr50, #[cite: 2]
+    unfair_tos_supervised_student_lr50, #[cite: 2]
+    ledgar_supervised_student_lr5, #[cite: 2]
+    unfair_tos_kd_student_lr50, #[cite: 2]
+    ledgar_kd_student_lr5, #[cite: 2]
+
+    # --- 60% UNFAIR-ToS / 6% LEDGAR ---
+    unfair_tos_teacher_lr60,
+    ledgar_teacher_lr6,
+    unfair_tos_supervised_student_lr60,
+    ledgar_supervised_student_lr6,
+    unfair_tos_kd_student_lr60,
+    ledgar_kd_student_lr6,
+
+    # --- 70% UNFAIR-ToS / 7% LEDGAR ---
+    unfair_tos_teacher_lr70,
+    ledgar_teacher_lr7,
+    unfair_tos_supervised_student_lr70,
+    ledgar_supervised_student_lr7,
 ]
 
 # ==============================================================================================
