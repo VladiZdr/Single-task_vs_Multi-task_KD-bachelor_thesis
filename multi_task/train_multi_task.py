@@ -18,6 +18,7 @@ from configs.model_templates import (
     annealing_multi_task_models,
 )
 from configs.model_templates_low_ress import low_resource_multi_task_models
+from configs.model_templates_dif_seeds import different_seed_multi_task_models
 from configs.model_templates_testers import multi_task_testers
 from datasets_manipulation.prepare_datasets import prep_dataset_from_raw, smart_load_dataset
 from multi_task.multi_task_model import MultiTaskModel
@@ -228,7 +229,7 @@ temperature_models = temperature_multi_task_models
 annealing_models = annealing_multi_task_models
 low_resource_models = low_resource_multi_task_models
 
-models_to_run = []
+models_to_run = different_seed_multi_task_models
 
 
 def run_multitask_pipelines() -> None:

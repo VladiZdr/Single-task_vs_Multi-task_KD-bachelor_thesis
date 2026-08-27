@@ -21,6 +21,7 @@ from configs.model_templates import (
     annealing_single_task_models,
 )
 from configs.model_templates_low_ress import low_resource_single_task_models, models_for_eval
+from configs.model_templates_dif_seeds import different_seed_single_task_models
 from datasets_manipulation.prepare_datasets import prep_dataset_from_raw, smart_load_dataset
 from single_task.legal_model import LegalModel
 from single_task.legal_model_trainer import LegalModelTrainer
@@ -295,7 +296,7 @@ temperature_models = temperature_single_task_models
 annealing_models = annealing_single_task_models
 low_resource_models = low_resource_single_task_models
 
-models_to_run = models_for_eval
+models_to_run = different_seed_single_task_models
 
 
 def run_pipelines() -> None:
