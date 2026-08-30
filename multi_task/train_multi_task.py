@@ -229,7 +229,7 @@ temperature_models = temperature_multi_task_models
 annealing_models = annealing_multi_task_models
 low_resource_models = low_resource_multi_task_models
 
-models_to_run = different_seed_multi_task_models
+models_to_run = []
 
 
 def run_multitask_pipelines() -> None:
