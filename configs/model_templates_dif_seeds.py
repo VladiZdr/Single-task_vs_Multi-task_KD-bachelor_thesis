@@ -177,8 +177,8 @@ seed_3_single_task_models = [
     unfair_tos_supervised_student_lr60_S3, ledgar_supervised_student_lr6_S3,
     unfair_tos_kd_student_lr60_S3, ledgar_kd_student_lr6_S3,
     unfair_tos_supervised_student_lr80_S3, ledgar_supervised_student_lr8_S3,
-    #unfair_tos_kd_student_lr80_S3, ledgar_kd_student_lr8_S3,
-    #ledgar_supervised_student_lr10_S3, ledgar_kd_student_lr10_S3,
+    unfair_tos_kd_student_lr80_S3, ledgar_kd_student_lr8_S3,
+    ledgar_supervised_student_lr10_S3, ledgar_kd_student_lr10_S3,
 ]
 
 seed_3_multi_task_models = [
