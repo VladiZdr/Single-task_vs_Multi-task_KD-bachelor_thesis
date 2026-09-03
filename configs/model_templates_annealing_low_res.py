@@ -142,7 +142,7 @@ single_task_low_res_students: List[ModelConfig] = []
 LOW_RES_SCHEMAS = [
     ("lr40_4", ledgar_teacher_lr4, unfair_tos_teacher_lr40, 4, 40, 25),
     ("lr50_5", ledgar_teacher_lr5, unfair_tos_teacher_lr50, 5, 50, 20),
-    ("lr70_7", ledgar_teacher_lr7,  unfair_tos_teacher_lr70, 7, 70, 14)
+    ("lr70_7", ledgar_teacher_lr7,  unfair_tos_teacher_lr70, 7, 70, 14),
     ("lr100_10", ledgar_teacher_lr10, unfair_tos_teacher, 10, 100, 10),
 ]
 
