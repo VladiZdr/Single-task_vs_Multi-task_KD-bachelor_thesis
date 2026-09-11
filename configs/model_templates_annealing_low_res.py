@@ -152,8 +152,8 @@ for tag, led_t, unf_t, lr_l, lr_u, ep in LOW_RES_SCHEMAS:
             led_cfg, unf_cfg = _create_task_student_pair(
                 ledgar_teacher_cfg=led_t,
                 unfair_teacher_cfg=unf_t,
-                low_res_ledgar_pct=lr_l,
-                low_res_unfair_pct=lr_u,
+                low_res_ledgar_pct=100,
+                low_res_unfair_pct=100,
                 epochs=ep,
                 temperature=temp,
                 seed_value=s_val,
