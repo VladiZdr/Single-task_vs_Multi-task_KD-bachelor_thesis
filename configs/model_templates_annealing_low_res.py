@@ -177,4 +177,4 @@ for tag, led_t, unf_t, lr_l, lr_u, ep in LOW_RES_SCHEMAS:
 
 # Primary Export Lists for Runner Pipelines
 all_multitask_models = multi_task_fixed_alpha_configs + multi_task_low_res_annealing_configs
-all_singletask_submodels = single_task_fixed_alpha_students + single_task_low_res_students
+all_singletask_submodels = single_task_low_res_students
