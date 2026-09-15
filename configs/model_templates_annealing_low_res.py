@@ -141,9 +141,9 @@ single_task_low_res_students: List[ModelConfig] = []
 # Specifications: (Tag, LEDGAR Teacher, UNFAIR-ToS Teacher, LEDGAR %, UNFAIR-ToS %, Epochs)
 LOW_RES_SCHEMAS = [
     ("lr40_4", ledgar_teacher_lr4, unfair_tos_teacher_lr40, 4, 40, 25),
-    #("lr50_5", ledgar_teacher_lr5, unfair_tos_teacher_lr50, 5, 50, 20),
-    #("lr70_7", ledgar_teacher_lr7,  unfair_tos_teacher_lr70, 7, 70, 14),
-    #("lr100_10", ledgar_teacher_lr10, unfair_tos_teacher, 10, 100, 10),
+    ("lr50_5", ledgar_teacher_lr5, unfair_tos_teacher_lr50, 5, 50, 20),
+    ("lr70_7", ledgar_teacher_lr7,  unfair_tos_teacher_lr70, 7, 70, 14),
+    ("lr100_10", ledgar_teacher_lr10, unfair_tos_teacher, 10, 100, 10),
 ]
 
 for tag, led_t, unf_t, lr_l, lr_u, ep in LOW_RES_SCHEMAS:
@@ -177,4 +177,4 @@ for tag, led_t, unf_t, lr_l, lr_u, ep in LOW_RES_SCHEMAS:
 
 # Primary Export Lists for Runner Pipelines
 all_multitask_models = []#multi_task_fixed_alpha_configs + multi_task_low_res_annealing_configs
-all_singletask_submodels = single_task_fixed_alpha_students + single_task_low_res_students
+all_singletask_submodels = single_task_low_res_students
