@@ -201,7 +201,54 @@ ledgar_L_lr40_4_t4_S2                              | 25    | 1.1145  | 0.6048   
 unfair_tos_U_lr40_4_t4_S2                          | 23    | 0.0378  | 0.7563   | 0.7224   | label_5 (0.92)     | label_2 (0.66)     | 461.5 smp/s
 ledgar_L_lr40_4_t4_S3                              | 25    | 1.1377  | 0.6046   | 0.7514   | label_26 (0.98)    | label_1 (0.00)     | 460.9 smp/s
 unfair_tos_U_lr40_4_t4_S3                          | 23    | 0.0364  | 0.7474   | 0.7170   | label_5 (0.92)     | label_2 (0.63)     | 461.4 smp/s
-
+ledgar_L_lr40_4_t2_S1                              | 25    | 1.1359  | 0.6029   | 0.7463   | label_26 (0.98)    | label_4 (0.00)     | 448.9 smp/s
+unfair_tos_U_lr40_4_t2_S1                          | 21    | 0.0329  | 0.7744   | 0.7314   | label_5 (0.96)     | label_0 (0.61)     | 434.4 smp/s
+ledgar_L_lr40_4_t2_S2                              | 25    | 1.1079  | 0.6050   | 0.7509   | label_26 (0.98)    | label_1 (0.00)     | 443.9 smp/s
+unfair_tos_U_lr40_4_t2_S2                          | 19    | 0.0357  | 0.7477   | 0.7059   | label_5 (0.89)     | label_0 (0.63)     | 457.6 smp/s
+ledgar_L_lr40_4_t2_S3                              | 25    | 1.1443  | 0.6023   | 0.7493   | label_26 (0.98)    | label_1 (0.00)     | 447.7 smp/s
+unfair_tos_U_lr40_4_t2_S3                          | 19    | 0.0344  | 0.7436   | 0.7039   | label_5 (0.92)     | label_0 (0.60)     | 454.9 smp/s
+ledgar_L_lr40_4_t4_S1                              | 25    | 1.1355  | 0.6017   | 0.7485   | label_26 (0.98)    | label_4 (0.00)     | 442.0 smp/s
+unfair_tos_U_lr40_4_t4_S1                          | 24    | 0.0344  | 0.7661   | 0.7345   | label_5 (0.96)     | label_0 (0.62)     | 453.8 smp/s
+ledgar_L_lr40_4_t4_S2                              | 25    | 1.1145  | 0.6048   | 0.7509   | label_26 (0.98)    | label_1 (0.00)     | 445.8 smp/s
+unfair_tos_U_lr40_4_t4_S2                          | 23    | 0.0378  | 0.7563   | 0.7224   | label_5 (0.92)     | label_2 (0.66)     | 462.2 smp/s
+ledgar_L_lr40_4_t4_S3                              | 25    | 1.1377  | 0.6046   | 0.7514   | label_26 (0.98)    | label_1 (0.00)     | 455.9 smp/s
+unfair_tos_U_lr40_4_t4_S3                          | 23    | 0.0364  | 0.7474   | 0.7170   | label_5 (0.92)     | label_2 (0.63)     | 460.3 smp/s
+ledgar_L_lr50_5_t2_S1                              | 20    | 1.0534  | 0.6105   | 0.7606   | label_26 (0.98)    | label_1 (0.00)     | 445.2 smp/s
+unfair_tos_U_lr50_5_t2_S1                          | 18    | 0.0328  | 0.7580   | 0.7147   | label_6 (0.97)     | label_2 (0.57)     | 459.0 smp/s
+ledgar_L_lr50_5_t2_S2                              | 20    | 1.0476  | 0.6111   | 0.7609   | label_26 (0.98)    | label_1 (0.00)     | 456.8 smp/s
+unfair_tos_U_lr50_5_t2_S2                          | 17    | 0.0326  | 0.7310   | 0.7027   | label_5 (0.92)     | label_2 (0.56)     | 464.2 smp/s
+ledgar_L_lr50_5_t2_S3                              | 20    | 1.0887  | 0.6125   | 0.7592   | label_26 (0.98)    | label_1 (0.00)     | 453.8 smp/s
+unfair_tos_U_lr50_5_t2_S3                          | 20    | 0.0330  | 0.7362   | 0.7174   | label_5 (0.92)     | label_2 (0.56)     | 468.7 smp/s
+ledgar_L_lr50_5_t4_S1                              | 19    | 1.0667  | 0.6091   | 0.7620   | label_26 (0.97)    | label_1 (0.00)     | 452.3 smp/s
+unfair_tos_U_lr50_5_t4_S1                          | 19    | 0.0324  | 0.7688   | 0.7360   | label_6 (0.97)     | label_2 (0.60)     | 466.8 smp/s
+ledgar_L_lr50_5_t4_S2                              | 20    | 1.0607  | 0.6108   | 0.7613   | label_93 (0.98)    | label_1 (0.00)     | 452.4 smp/s
+unfair_tos_U_lr50_5_t4_S2                          | 17    | 0.0347  | 0.7467   | 0.7131   | label_5 (0.92)     | label_2 (0.58)     | 466.2 smp/s
+ledgar_L_lr50_5_t4_S3                              | 20    | 1.0959  | 0.6051   | 0.7573   | label_26 (0.98)    | label_1 (0.00)     | 453.2 smp/s
+unfair_tos_U_lr50_5_t4_S3                          | 19    | 0.0364  | 0.7263   | 0.7154   | label_5 (0.88)     | label_7 (0.59)     | 464.4 smp/s
+ledgar_L_lr70_7_t2_S1                              | 14    | 0.9991  | 0.6132   | 0.7657   | label_26 (0.98)    | label_4 (0.00)     | 455.1 smp/s
+unfair_tos_U_lr70_7_t2_S1                          | 9     | 0.0289  | 0.7482   | 0.7363   | label_6 (0.97)     | label_3 (0.60)     | 462.8 smp/s
+ledgar_L_lr70_7_t2_S2                              | 14    | 1.0110  | 0.6127   | 0.7657   | label_26 (0.98)    | label_4 (0.00)     | 450.3 smp/s
+unfair_tos_U_lr70_7_t2_S2                          | 13    | 0.0278  | 0.7657   | 0.7382   | label_6 (0.97)     | label_2 (0.62)     | 460.8 smp/s
+ledgar_L_lr70_7_t2_S3                              | 14    | 1.0234  | 0.6188   | 0.7684   | label_26 (0.98)    | label_4 (0.00)     | 450.2 smp/s
+unfair_tos_U_lr70_7_t2_S3                          | 12    | 0.0290  | 0.7573   | 0.7460   | label_5 (0.96)     | label_3 (0.59)     | 464.3 smp/s
+ledgar_L_lr70_7_t4_S1                              | 14    | 0.9959  | 0.6152   | 0.7659   | label_26 (0.98)    | label_4 (0.00)     | 449.2 smp/s
+unfair_tos_U_lr70_7_t4_S1                          | 14    | 0.0314  | 0.7744   | 0.7467   | label_6 (0.97)     | label_2 (0.68)     | 462.5 smp/s
+ledgar_L_lr70_7_t4_S2                              | 14    | 1.0055  | 0.6148   | 0.7669   | label_26 (0.98)    | label_4 (0.00)     | 448.7 smp/s
+unfair_tos_U_lr70_7_t4_S2                          | 13    | 0.0318  | 0.7521   | 0.7292   | label_6 (0.97)     | label_3 (0.62)     | 464.8 smp/s
+ledgar_L_lr70_7_t4_S3                              | 14    | 1.0192  | 0.6194   | 0.7692   | label_26 (0.98)    | label_4 (0.00)     | 455.4 smp/s
+unfair_tos_U_lr70_7_t4_S3                          | 13    | 0.0326  | 0.7319   | 0.7202   | label_5 (0.96)     | label_7 (0.58)     | 460.6 smp/s
+ledgar_L_lr100_10_t2_S1                            | 10    | 0.9379  | 0.6229   | 0.7721   | label_26 (0.98)    | label_5 (0.00)     | 453.4 smp/s
+unfair_tos_U_lr100_10_t2_S1                        | 10    | 0.0264  | 0.7893   | 0.7579   | label_6 (0.94)     | label_0 (0.68)     | 462.1 smp/s
+ledgar_L_lr100_10_t2_S2                            | 10    | 0.9408  | 0.6246   | 0.7740   | label_26 (0.98)    | label_4 (0.00)     | 440.2 smp/s
+unfair_tos_U_lr100_10_t2_S2                        | 8     | 0.0267  | 0.7895   | 0.7560   | label_6 (0.97)     | label_0 (0.67)     | 458.6 smp/s
+ledgar_L_lr100_10_t2_S3                            | 10    | 0.9620  | 0.6214   | 0.7738   | label_26 (0.98)    | label_1 (0.00)     | 451.4 smp/s
+unfair_tos_U_lr100_10_t2_S3                        | 9     | 0.0279  | 0.7589   | 0.7391   | label_5 (0.96)     | label_7 (0.63)     | 458.4 smp/s
+ledgar_L_lr100_10_t4_S1                            | 10    | 0.9154  | 0.6273   | 0.7756   | label_26 (0.98)    | label_4 (0.00)     | 458.4 smp/s
+unfair_tos_U_lr100_10_t4_S1                        | 6     | 0.0316  | 0.7265   | 0.7089   | label_6 (0.97)     | label_3 (0.56)     | 462.0 smp/s
+ledgar_L_lr100_10_t4_S2                            | 10    | 0.9291  | 0.6306   | 0.7757   | label_26 (0.98)    | label_4 (0.00)     | 457.6 smp/s
+unfair_tos_U_lr100_10_t4_S2                        | 9     | 0.0300  | 0.7473   | 0.7302   | label_6 (0.94)     | label_3 (0.62)     | 459.4 smp/s
+ledgar_L_lr100_10_t4_S3                            | 10    | 0.9383  | 0.6312   | 0.7781   | label_26 (0.98)    | label_4 (0.00)     | 459.1 smp/s
+unfair_tos_U_lr100_10_t4_S3                        | 9     | 0.0306  | 0.7699   | 0.7473   | label_5 (0.96)     | label_7 (0.67)     | 447.4 smp/s
 [MultiTask] mt_mix05_t2_S1                         | 10    | 0.6757  | 0.7313   | 0.7646   | -                  | -                  | -
   ├─ LEDGAR                                        | -     | 0.7779  | 0.7833   | 0.8595   | label_14 (1.00)    | label_8 (0.00)     | 460.3 smp/s
   └─ UNFAIR-ToS                                    | -     | 0.0439  | 0.6793   | 0.6696   | label_6 (0.88)     | label_7 (0.47)     | 458.7 smp/s
